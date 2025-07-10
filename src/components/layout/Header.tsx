@@ -9,7 +9,7 @@ import {
 	User,
 	Heart,
 	ChevronDown,
-	Fingerprint,
+	LayoutDashboard,
 	Package,
 	Users,
 	Shield,
@@ -65,7 +65,7 @@ const Header = () => {
 			{
 				label: "Dashboard",
 				href: getDashboardRoute(),
-				icon: Fingerprint,
+				icon: LayoutDashboard,
 			},
 		];
 
@@ -83,7 +83,7 @@ const Header = () => {
 					...baseItems,
 					{ label: "My Orders", href: "/salesrep/orders", icon: ShoppingBag },
 					{ label: "Customers", href: "/salesrep/customers", icon: Users },
-					{ label: "Sales Targets", href: "/salesrep/targets", icon: Fingerprint },
+					{ label: "Sales Targets", href: "/salesrep/targets", icon: LayoutDashboard },
 				];
 
 			case "storekeeper":
@@ -188,7 +188,7 @@ const Header = () => {
 								className="hidden sm:flex p-2 text-neutral-700 hover:text-neutral-900 transition-colors"
 								title="Go to Dashboard"
 							>
-								<Fingerprint className="w-5 h-5" />
+								<LayoutDashboard className="w-5 h-5" />
 							</button>
 						)}
 

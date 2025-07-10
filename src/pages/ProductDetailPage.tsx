@@ -60,7 +60,6 @@ const ProductDetailPage = () => {
 	const [selectedSize, setSelectedSize] = useState("");
 	const [selectedColor, setSelectedColor] = useState("");
 	const [quantity, setQuantity] = useState(1);
-	const [isAddingToCart, setIsAddingToCart] = useState(false);
 
 	// Check if product has required options
 	const hasRequiredSelections = () => {
@@ -110,10 +109,7 @@ const ProductDetailPage = () => {
 	const handleAddToCart = () => {
 		if (!product) return;
 
-		setIsAddingToCart(true);
-
 		// Simulate API delay
-		setTimeout(() => {
 			addItem({
 				productId: product.id,
 				name: product.name,
@@ -126,8 +122,6 @@ const ProductDetailPage = () => {
 			});
 
 			showSuccessToast(`${product.name} added to cart`);
-			setIsAddingToCart(false);
-		}, 500);
 	};
 
 	const handleWishlist = (e: React.MouseEvent) => {
@@ -491,8 +485,7 @@ const ProductDetailPage = () => {
 						<div className="space-y-3">
 							<Button
 								onClick={handleAddToCart}
-								disabled={!product.inStock || isAddingToCart || !hasRequiredSelections()}
-								isLoading={isAddingToCart}
+								disabled={!product.inStock || !hasRequiredSelections()}
 								className="w-full"
 								size="lg"
 							>

@@ -37,6 +37,13 @@ const productSlice = createSlice({
 				state.products.unshift(action.payload);
 			}
 		},
+		deleteProductLocally: (state, action: PayloadAction<string>) => {
+			state.products = state.products.filter((p) => p.id !== action.payload);
+			// Also clear selectedProduct if it was the deleted one
+			if (state.selectedProduct?.id === action.payload) {
+				state.selectedProduct = null;
+			}
+		},
 		resetProductState: (state) => {
 			state.products = [];
 			state.selectedProduct = null;
@@ -108,6 +115,10 @@ const productSlice = createSlice({
 			.addCase(deleteProduct.fulfilled, (state, action) => {
 				state.loading = false;
 				state.products = state.products.filter((p) => p.id !== action.payload);
+				// Also clear selectedProduct if it was the deleted one
+				if (state.selectedProduct?.id === action.payload) {
+					state.selectedProduct = null;
+				}
 				state.error = null;
 			})
 			.addCase(deleteProduct.rejected, (state, action) => {
@@ -117,6 +128,6 @@ const productSlice = createSlice({
 	},
 });
 
-export const { applyUpdatedProduct, addNewProduct, resetProductState } = productSlice.actions;
+export const { applyUpdatedProduct, addNewProduct, deleteProductLocally, resetProductState } = productSlice.actions;
 
 export default productSlice.reducer;

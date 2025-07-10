@@ -39,7 +39,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
 		case "ADD_ITEM": {
 			const existingItem = state.items.find(
 				(item) =>
-					item.productId === action.payload.productId &&
+					item.id === action.payload.productId &&
 					item.size === action.payload.size &&
 					item.color === action.payload.color,
 			);

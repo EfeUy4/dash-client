@@ -48,9 +48,10 @@ const ProductCard = ({ product }: ProductCardProps) => {
 			name: product.name,
 			price: product.price,
 			image: product.images[0],
-			size: product.sizes[0],
-			color: product.colors[0],
-			maxStock: product.stockCount,
+			size: product.sizes[0] || "N/A",
+			color: product.colors[0] || "N/A",
+      maxStock: product.stockCount,
+      quantity: 1,
     });
     
     showSuccessToast(`${product.name} added to cart`);
