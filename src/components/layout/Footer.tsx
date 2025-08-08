@@ -9,26 +9,18 @@ const Footer = () => {
 		shop: [
 			{ name: "New Arrivals", href: "/new-arrivals" },
 			{ name: "Best Sellers", href: "/products?sort=popular" },
-			{ name: "Sale", href: "/products?sale=true" },
-			{ name: "Gift Cards", href: "/gift-cards" },
+			{ name: "Sale", href: "/products?sale=true" }
 		],
 		customer: [
 			{ name: "Contact Us", href: "/support" },
-			{ name: "Size Guide", href: "/size-guide" },
-			{ name: "Shipping Info", href: "/shipping" },
-			{ name: "Returns", href: "/returns" },
+			{ name: "Shipping Info", href: "/shipping" }
 		],
 		company: [
 			{ name: "About Us", href: "/about" },
-			{ name: "Careers", href: "/careers" },
-			{ name: "Press", href: "/press" },
-			{ name: "Sustainability", href: "/sustainability" },
 		],
 		legal: [
 			{ name: "Privacy Policy", href: "/privacy" },
 			{ name: "Terms of Service", href: "/terms" },
-			{ name: "Cookie Policy", href: "/cookies" },
-			{ name: "Accessibility", href: "/accessibility" },
 		],
 	};
 
