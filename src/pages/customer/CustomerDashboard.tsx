@@ -60,7 +60,7 @@ const CustomerDashboard = () => {
 		}, {} as Record<string, number>);
 
 		// Recent orders for display (last 5)
-		const recentOrdersDisplay = myOrders
+		const recentOrdersDisplay = [...myOrders] // ✅ Create a copy first
 			.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 			.slice(0, 5);
 
@@ -211,7 +211,7 @@ const CustomerDashboard = () => {
 				</Link>
 
 				<Link
-					to="/orders"
+					to="/customer/orders"
 					className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow group"
 				>
 					<div className="flex items-center">
@@ -243,7 +243,7 @@ const CustomerDashboard = () => {
 				</Link>
 
 				<Link
-					to="/account"
+					to="/customer/account"
 					className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow group"
 				>
 					<div className="flex items-center">
@@ -325,7 +325,7 @@ const CustomerDashboard = () => {
 							<Package className="w-5 h-5 mr-2" />
 							Recent Orders
 						</h3>
-						<Link to="/orders" className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+						<Link to="/customer/orders" className="text-blue-600 hover:text-blue-700 text-sm font-medium">
 							View all
 						</Link>
 					</div>
