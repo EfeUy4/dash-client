@@ -56,14 +56,14 @@ const SupportPage = () => {
 			icon: Mail,
 			title: "Email Support",
 			description: "Send us an email and we'll respond within 24 hours",
-			contact: "support@dashngshop.com",
+			contact: "support@dashshops.com",
 			available: "24/7",
 		},
 		{
 			icon: Phone,
 			title: "Phone Support",
 			description: "Speak directly with our customer service team",
-			contact: "+234 800 DASH NGS",
+			contact: "+234 8060 373 800",
 			available: "Mon-Fri, 9AM-6PM WAT",
 		},
 		{
@@ -278,8 +278,8 @@ const SupportPage = () => {
 										<MapPin className="w-5 h-5 text-neutral-400 mt-1" />
 										<div>
 											<p className="font-medium text-neutral-900">Dash Flagship Store</p>
-											<p className="text-neutral-600">123 Luxury Avenue, Victoria Island</p>
-											<p className="text-neutral-600">Lagos, Nigeria</p>
+											<p className="text-neutral-600">101A Brookstone Close, GRA phase 3</p>
+											<p className="text-neutral-600">Port Harcourt, Rivers State, Nigeria</p>
 										</div>
 									</div>
 
