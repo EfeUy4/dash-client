@@ -14,9 +14,9 @@ const CartPage = () => {
 		}).format(price);
 	};
 
-	const shipping = total > 50000 ? 0 : 2500;
-	const tax = total * 0.075; // 7.5% VAT
-	const finalTotal = total + shipping + tax;
+  const shipping = total > 50000 ? 0 : 0;
+  // const tax = total * 0.075; // Assuming 7.5% VAT
+	const finalTotal = total + shipping;
 
 	if (items.length === 0) {
 		return (
@@ -241,10 +241,10 @@ const CartPage = () => {
 									</span>
 								</div>
 
-								<div className="flex justify-between text-sm sm:text-base">
+								{/* <div className="flex justify-between text-sm sm:text-base">
 									<span className="text-neutral-600">Tax (VAT 7.5%)</span>
 									<span className="font-medium">{formatPrice(tax)}</span>
-								</div>
+								</div> */}
 
 								{shipping === 0 && (
 									<div className="text-xs sm:text-sm text-green-600 bg-green-50 p-3 rounded-md">
