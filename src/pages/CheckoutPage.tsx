@@ -40,9 +40,8 @@ const CheckoutPage = () => {
 		country: "Nigeria",
 	});
 
-	const shipping = total > 50000 ? 0 : 2500;
-	const tax = total * 0.075; // 7.5% VAT
-	const finalTotal = total + shipping + tax;
+	const shipping = total > 50000 ? 0 : 0;
+	const finalTotal = total + shipping;
 
 	const formatPrice = (price: number) => {
 		return new Intl.NumberFormat("en-NG", {
@@ -484,10 +483,10 @@ const CheckoutPage = () => {
 										{shipping === 0 ? <span className="text-green-600">Free</span> : formatPrice(shipping)}
 									</span>
 								</div>
-								<div className="flex justify-between text-sm">
+								{/* <div className="flex justify-between text-sm">
 									<span className="text-neutral-600">Tax</span>
 									<span className="font-medium">{formatPrice(tax)}</span>
-								</div>
+								</div> */}
 								<div className="flex justify-between text-lg font-semibold pt-2 border-t border-neutral-200">
 									<span>Total</span>
 									<span>{formatPrice(finalTotal)}</span>
