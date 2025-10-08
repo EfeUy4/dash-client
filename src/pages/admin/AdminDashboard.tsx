@@ -248,7 +248,7 @@ const AdminDashboard = () => {
 				
 				return parseTimeAgo(a.time) - parseTimeAgo(b.time);
 			})
-			.slice(0, 10);
+			.slice(0, 4);
 	}, [users, orders, products]);
 
 	const handleRefresh = () => {
@@ -460,7 +460,7 @@ const AdminDashboard = () => {
 					</div>
 					<div className="p-4 sm:p-6">
 						{recentActivity.length > 0 ? (
-							<div className="space-y-4 max-h-96 overflow-y-auto">
+							<div className="space-y-4">
 								{recentActivity.map((activity: any) => (
 									<div key={activity.id} className="flex items-start space-x-3">
 										<div className="p-2 bg-gray-50 rounded-lg flex-shrink-0">{getActivityIcon(activity.type)}</div>

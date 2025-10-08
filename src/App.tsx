@@ -16,6 +16,7 @@ import RegisterPage from "./pages/auth/RegisterPage";
 import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import WishlistPage from "./pages/WishlistPage";
+import TrackOrderPage from "./pages/TrackOrderPage";
 
 // Customer Layout & Pages
 import CustomerLayout from "./components/layout/CustomerLayout";
@@ -76,6 +77,7 @@ function App() {
 					<Route path="support" element={<SupportPage />} />
 					<Route path="cart" element={<CartPage />} />
 					<Route path="checkout" element={<CheckoutPage />} />
+					<Route path="track-order" element={<TrackOrderPage />} />
 					<Route path="store" element={<ProductsPage />} />
 					<Route path="shop" element={<ProductsPage />} />
 				</Route>

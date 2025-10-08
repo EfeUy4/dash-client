@@ -85,13 +85,6 @@ const AdminSidebar = () => {
 					</p>
 					<div className="space-y-2">
 						<Link
-							to="/admin/system"
-							className="flex items-center space-x-2 text-sm text-neutral-600 hover:text-neutral-900 transition-colors"
-						>
-							<Sliders className="w-4 h-4" />
-							<span>System Config</span>
-						</Link>
-						<Link
 							to="/"
 							className="flex items-center space-x-2 text-sm text-neutral-600 hover:text-neutral-900 transition-colors"
 						>

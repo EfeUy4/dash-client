@@ -12,6 +12,7 @@ const Footer = () => {
 			{ name: "Sale", href: "/products?sale=true" }
 		],
 		customer: [
+			{ name: "Track Order", href: "/track-order" },
 			{ name: "Contact Us", href: "/support" },
 			{ name: "Shipping Info", href: "/shipping" }
 		],

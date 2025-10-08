@@ -152,7 +152,7 @@ const ListProductCard = ({ product }: { product: Product }) => {
 						<div className="flex items-center gap-0.5">
 							{Array.from({ length: 5 }).map((_, i) => (
 								<svg
-									key={i}
+									key={`star-${i}`}
 									className={`w-3 h-3 ${
 										i < Math.floor(product.rating) ? "text-amber-400 fill-current" : "text-neutral-300"
 									}`}
