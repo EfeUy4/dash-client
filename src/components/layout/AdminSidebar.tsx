@@ -1,4 +1,3 @@
-// components/layout/AdminSidebar.tsx
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -13,7 +12,6 @@ import {
 	Menu,
 	LogOut,
 	Home,
-	Sliders,
   LucideTruck,
   AlertTriangle,
 } from "lucide-react";
