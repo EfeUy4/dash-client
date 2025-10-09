@@ -38,11 +38,11 @@ const StoreKeeperSettings = () => {
 	const [isLoading, setIsLoading] = useState(false);
 	const [isLoadingData, setIsLoadingData] = useState(true);
 	const [exchangeSettings, setExchangeSettings] = useState<ExchangeRateSettings>({
-		usdToNgnRate: 1650,
+		usdToNgnRate: 1650 / 50,
 		lastUpdated: new Date().toISOString(),
-		updatedBy: ''
+		updatedBy: "",
 	});
-	
+
 	const { showSuccessToast, showErrorToast } = useToastUtils();
 
 	// Fetch current exchange rate settings
@@ -53,12 +53,12 @@ const StoreKeeperSettings = () => {
 	const fetchExchangeSettings = async () => {
 		try {
 			setIsLoadingData(true);
-			const response = await api.get('/settings/exchange-rate');
+			const response = await api.get("/settings/exchange-rate");
 			if (response.data.settings) {
 				setExchangeSettings(response.data.settings);
 			}
 		} catch (error: any) {
-			console.error('Failed to fetch exchange rate settings:', error);
+			console.error("Failed to fetch exchange rate settings:", error);
 			// Use default values if fetch fails
 		} finally {
 			setIsLoadingData(false);
@@ -68,9 +68,9 @@ const StoreKeeperSettings = () => {
 	const handleRateChange = (value: string) => {
 		const rate = parseFloat(value);
 		if (!isNaN(rate) && rate > 0) {
-			setExchangeSettings(prev => ({
+			setExchangeSettings((prev) => ({
 				...prev,
-				usdToNgnRate: rate
+				usdToNgnRate: rate,
 			}));
 		}
 	};
@@ -78,22 +78,22 @@ const StoreKeeperSettings = () => {
 	const handleSaveExchangeRate = async () => {
 		try {
 			setIsLoading(true);
-			
+
 			if (exchangeSettings.usdToNgnRate <= 0) {
-				showErrorToast('Exchange rate must be greater than 0');
+				showErrorToast("Exchange rate must be greater than 0");
 				return;
 			}
 
-			await api.post('/settings/exchange-rate', {
-				usdToNgnRate: exchangeSettings.usdToNgnRate
+			await api.post("/settings/exchange-rate", {
+				usdToNgnRate: exchangeSettings.usdToNgnRate,
 			});
-			
-			showSuccessToast('Exchange rate updated successfully');
+
+			showSuccessToast("Exchange rate updated successfully");
 			// Refresh settings to get updated timestamp and user info
 			await fetchExchangeSettings();
 		} catch (error: any) {
-			console.error('Failed to update exchange rate:', error);
-			showErrorToast(error.response?.data?.message || 'Failed to update exchange rate');
+			console.error("Failed to update exchange rate:", error);
+			showErrorToast(error.response?.data?.message || "Failed to update exchange rate");
 		} finally {
 			setIsLoading(false);
 		}
@@ -151,7 +151,7 @@ const StoreKeeperSettings = () => {
 					animate={{ opacity: 1, y: 0 }}
 					className="bg-white rounded-lg shadow-sm border border-neutral-200 p-6"
 				>
-					<div className="flex items-center justify-between mb-6">
+					<div className="flex items-center justify-between mb-6 flex-wrap gap-5">
 						<div className="flex items-center">
 							<DollarSign className="w-5 h-5 text-green-600 mr-2" />
 							<h2 className="text-xl font-serif font-semibold text-neutral-900">Exchange Rate</h2>
@@ -175,7 +175,7 @@ const StoreKeeperSettings = () => {
 						/>
 
 						{exchangeSettings.lastUpdated && (
-							<div className="bg-gray-50 rounded-lg p-4">
+							<div className="bg-gray-50/50 rounded-lg p-4">
 								<p className="text-sm text-gray-600">
 									<strong>Last Updated:</strong> {formatDate(exchangeSettings.lastUpdated)}
 								</p>
@@ -203,44 +203,44 @@ const StoreKeeperSettings = () => {
 
 					<div className="space-y-4">
 						<div className="grid grid-cols-2 gap-4">
-							<div className="text-center p-4 bg-green-50 rounded-lg">
+							<div className="p-4 bg-green-50/50 rounded-lg">
 								<p className="text-sm text-green-700 font-medium">$10 USD</p>
 								<p className="text-lg font-bold text-green-900">
 									{formatCurrency(10, exchangeSettings.usdToNgnRate)}
 								</p>
 							</div>
-							<div className="text-center p-4 bg-blue-50 rounded-lg">
-								<p className="text-sm text-blue-700 font-medium">$50 USD</p>
+							<div className="p-4 bg-blue-50/50 rounded-lg">
+								<p className="text-sm text-blue-700 font-medium">$50/50 USD</p>
 								<p className="text-lg font-bold text-blue-900">
-									{formatCurrency(50, exchangeSettings.usdToNgnRate)}
+									{formatCurrency(50 / 50, exchangeSettings.usdToNgnRate)}
 								</p>
 							</div>
 						</div>
-						
+
 						<div className="grid grid-cols-2 gap-4">
-							<div className="text-center p-4 bg-purple-50 rounded-lg">
+							<div className="p-4 bg-purple-50/50 rounded-lg">
 								<p className="text-sm text-purple-700 font-medium">$100 USD</p>
 								<p className="text-lg font-bold text-purple-900">
 									{formatCurrency(100, exchangeSettings.usdToNgnRate)}
 								</p>
 							</div>
-							<div className="text-center p-4 bg-orange-50 rounded-lg">
-								<p className="text-sm text-orange-700 font-medium">$500 USD</p>
+							<div className="p-4 bg-orange-50/50 rounded-lg">
+								<p className="text-sm text-orange-700 font-medium">$50/500 USD</p>
 								<p className="text-lg font-bold text-orange-900">
-									{formatCurrency(500, exchangeSettings.usdToNgnRate)}
+									{formatCurrency(50 / 500, exchangeSettings.usdToNgnRate)}
 								</p>
 							</div>
 						</div>
 					</div>
 
-					<div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+					<div className="mt-6 p-4 bg-yellow-50/50 border border-yellow-200 rounded-lg">
 						<div className="flex items-start">
 							<AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5 mr-2" />
 							<div>
 								<p className="text-sm text-yellow-800 font-medium">Important Note</p>
 								<p className="text-sm text-yellow-700 mt-1">
-									This rate affects how product prices are displayed to customers. 
-									Products are stored in USD and converted to NGN using this rate.
+									This rate affects how product prices are displayed to customers. Products are stored in USD
+									and converted to NGN using this rate.
 								</p>
 							</div>
 						</div>
@@ -265,7 +265,7 @@ const StoreKeeperSettings = () => {
 							type="checkbox"
 							checked={settings.notifications.lowStockAlerts}
 							onChange={(e) => updateSetting("notifications", "lowStockAlerts", e.target.checked)}
-							className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+							className="h-4 w-4 text-orange-600 focus:ring-orange-50/500 border-gray-300 rounded"
 						/>
 					</div>
 
@@ -278,7 +278,7 @@ const StoreKeeperSettings = () => {
 							type="checkbox"
 							checked={settings.notifications.outOfStockAlerts}
 							onChange={(e) => updateSetting("notifications", "outOfStockAlerts", e.target.checked)}
-							className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+							className="h-4 w-4 text-orange-600 focus:ring-orange-50/500 border-gray-300 rounded"
 						/>
 					</div>
 
@@ -291,7 +291,7 @@ const StoreKeeperSettings = () => {
 							type="checkbox"
 							checked={settings.notifications.emailNotifications}
 							onChange={(e) => updateSetting("notifications", "emailNotifications", e.target.checked)}
-							className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+							className="h-4 w-4 text-orange-600 focus:ring-orange-50/500 border-gray-300 rounded"
 						/>
 					</div>
 				</div>
@@ -313,7 +313,7 @@ const StoreKeeperSettings = () => {
 							type="number"
 							value={settings.inventory.defaultMinStock}
 							onChange={(e) => updateSetting("inventory", "defaultMinStock", parseInt(e.target.value))}
-							className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-orange-500 focus:border-orange-500"
+							className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-orange-50/500 focus:border-orange-50/500"
 						/>
 					</div>
 
@@ -323,7 +323,7 @@ const StoreKeeperSettings = () => {
 							type="number"
 							value={settings.inventory.autoReorderPoint}
 							onChange={(e) => updateSetting("inventory", "autoReorderPoint", parseInt(e.target.value))}
-							className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-orange-500 focus:border-orange-500"
+							className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-orange-50/500 focus:border-orange-50/500"
 						/>
 					</div>
 				</div>
@@ -338,7 +338,7 @@ const StoreKeeperSettings = () => {
 							type="checkbox"
 							checked={settings.inventory.stockMovementLogging}
 							onChange={(e) => updateSetting("inventory", "stockMovementLogging", e.target.checked)}
-							className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+							className="h-4 w-4 text-orange-600 focus:ring-orange-50/500 border-gray-300 rounded"
 						/>
 					</div>
 
@@ -351,7 +351,7 @@ const StoreKeeperSettings = () => {
 							type="checkbox"
 							checked={settings.inventory.requireApprovalForAdjustments}
 							onChange={(e) => updateSetting("inventory", "requireApprovalForAdjustments", e.target.checked)}
-							className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+							className="h-4 w-4 text-orange-600 focus:ring-orange-50/500 border-gray-300 rounded"
 						/>
 					</div>
 				</div>
@@ -367,11 +367,11 @@ const StoreKeeperSettings = () => {
 						<select
 							value={settings.display.itemsPerPage}
 							onChange={(e) => updateSetting("display", "itemsPerPage", parseInt(e.target.value))}
-							className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-orange-500 focus:border-orange-500"
+							className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-orange-50/500 focus:border-orange-50/500"
 						>
 							<option value={10}>10</option>
 							<option value={25}>25</option>
-							<option value={50}>50</option>
+							<option value={50 / 50}>50/50</option>
 							<option value={100}>100</option>
 						</select>
 					</div>
@@ -381,7 +381,7 @@ const StoreKeeperSettings = () => {
 						<select
 							value={settings.display.defaultSortBy}
 							onChange={(e) => updateSetting("display", "defaultSortBy", e.target.value)}
-							className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-orange-500 focus:border-orange-500"
+							className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-orange-50/500 focus:border-orange-50/500"
 						>
 							<option value="name">Name</option>
 							<option value="sku">SKU</option>

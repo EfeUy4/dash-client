@@ -19,9 +19,9 @@ const AdminSystem = () => {
 	const [settings, setSettings] = useState<ExchangeRateSettings>({
 		usdToNgnRate: 1650,
 		lastUpdated: new Date().toISOString(),
-		updatedBy: ''
+		updatedBy: "",
 	});
-	
+
 	const { showSuccessToast, showErrorToast } = useToastUtils();
 
 	// Fetch current exchange rate settings
@@ -32,12 +32,12 @@ const AdminSystem = () => {
 	const fetchSettings = async () => {
 		try {
 			setIsLoadingData(true);
-			const response = await api.get('/settings/exchange-rate');
+			const response = await api.get("/settings/exchange-rate");
 			if (response.data.settings) {
 				setSettings(response.data.settings);
 			}
 		} catch (error: any) {
-			console.error('Failed to fetch exchange rate settings:', error);
+			console.error("Failed to fetch exchange rate settings:", error);
 			// Use default values if fetch fails
 		} finally {
 			setIsLoadingData(false);
@@ -47,9 +47,9 @@ const AdminSystem = () => {
 	const handleRateChange = (value: string) => {
 		const rate = parseFloat(value);
 		if (!isNaN(rate) && rate > 0) {
-			setSettings(prev => ({
+			setSettings((prev) => ({
 				...prev,
-				usdToNgnRate: rate
+				usdToNgnRate: rate,
 			}));
 		}
 	};
@@ -57,22 +57,22 @@ const AdminSystem = () => {
 	const handleSave = async () => {
 		try {
 			setIsLoading(true);
-			
+
 			if (settings.usdToNgnRate <= 0) {
-				showErrorToast('Exchange rate must be greater than 0');
+				showErrorToast("Exchange rate must be greater than 0");
 				return;
 			}
 
-			await api.post('/settings/exchange-rate', {
-				usdToNgnRate: settings.usdToNgnRate
+			await api.post("/settings/exchange-rate", {
+				usdToNgnRate: settings.usdToNgnRate,
 			});
-			
-			showSuccessToast('Exchange rate updated successfully');
+
+			showSuccessToast("Exchange rate updated successfully");
 			// Refresh settings to get updated timestamp and user info
 			await fetchSettings();
 		} catch (error: any) {
-			console.error('Failed to update exchange rate:', error);
-			showErrorToast(error.response?.data?.message || 'Failed to update exchange rate');
+			console.error("Failed to update exchange rate:", error);
+			showErrorToast(error.response?.data?.message || "Failed to update exchange rate");
 		} finally {
 			setIsLoading(false);
 		}
@@ -97,7 +97,7 @@ const AdminSystem = () => {
 	return (
 		<div className="space-y-8">
 			{/* Header */}
-			<div className="flex items-center justify-between">
+			<div className="flex items-center justify-between flex-wrap gap-5">
 				<div>
 					<h1 className="text-2xl font-serif font-bold text-neutral-900">Exchange Rate Settings</h1>
 					<p className="text-neutral-600">Manage USD to NGN exchange rate for the store</p>
@@ -133,7 +133,7 @@ const AdminSystem = () => {
 						/>
 
 						{settings.lastUpdated && (
-							<div className="bg-gray-50 rounded-lg p-4">
+							<div className="bg-gray-50/50 rounded-lg p-4">
 								<p className="text-sm text-gray-600">
 									<strong>Last Updated:</strong> {formatDate(settings.lastUpdated)}
 								</p>
@@ -161,28 +161,26 @@ const AdminSystem = () => {
 
 					<div className="space-y-4">
 						<div className="grid grid-cols-2 gap-4">
-							<div className="text-center p-4 bg-green-50 rounded-lg">
+							<div className="p-4 bg-green-50/50 rounded-lg">
 								<p className="text-sm text-green-700 font-medium">$10 USD</p>
 								<p className="text-lg font-bold text-green-900">
 									{formatCurrency(10, settings.usdToNgnRate)}
 								</p>
 							</div>
-							<div className="text-center p-4 bg-blue-50 rounded-lg">
+							<div className="p-4 bg-blue-50/50 rounded-lg">
 								<p className="text-sm text-blue-700 font-medium">$50 USD</p>
-								<p className="text-lg font-bold text-blue-900">
-									{formatCurrency(50, settings.usdToNgnRate)}
-								</p>
+								<p className="text-lg font-bold text-blue-900">{formatCurrency(50, settings.usdToNgnRate)}</p>
 							</div>
 						</div>
-						
+
 						<div className="grid grid-cols-2 gap-4">
-							<div className="text-center p-4 bg-purple-50 rounded-lg">
+							<div className="p-4 bg-purple-50/50 rounded-lg">
 								<p className="text-sm text-purple-700 font-medium">$100 USD</p>
 								<p className="text-lg font-bold text-purple-900">
 									{formatCurrency(100, settings.usdToNgnRate)}
 								</p>
 							</div>
-							<div className="text-center p-4 bg-orange-50 rounded-lg">
+							<div className="p-4 bg-orange-50/50 rounded-lg">
 								<p className="text-sm text-orange-700 font-medium">$500 USD</p>
 								<p className="text-lg font-bold text-orange-900">
 									{formatCurrency(500, settings.usdToNgnRate)}
@@ -191,14 +189,14 @@ const AdminSystem = () => {
 						</div>
 					</div>
 
-					<div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+					<div className="mt-6 p-4 bg-yellow-50/50 border border-yellow-200 rounded-lg">
 						<div className="flex items-start">
 							<AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5 mr-2" />
 							<div>
 								<p className="text-sm text-yellow-800 font-medium">Important Note</p>
 								<p className="text-sm text-yellow-700 mt-1">
-									This rate affects how product prices are displayed to customers. 
-									Products are stored in USD and converted to NGN using this rate.
+									This rate affects how product prices are displayed to customers. Products are stored in USD
+									and converted to NGN using this rate.
 								</p>
 							</div>
 						</div>
