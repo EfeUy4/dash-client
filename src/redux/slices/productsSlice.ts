@@ -128,6 +128,7 @@ const productSlice = createSlice({
 	},
 });
 
-export const { applyUpdatedProduct, addNewProduct, deleteProductLocally, resetProductState } = productSlice.actions;
+export const { applyUpdatedProduct, addNewProduct, deleteProductLocally, resetProductState } =
+	productSlice.actions;
 
 export default productSlice.reducer;

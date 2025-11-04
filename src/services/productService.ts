@@ -1,13 +1,11 @@
 // services/productService.ts
 import { Product } from '@/data/types'
-import axios from 'axios'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+import api from '@/utils/api'
 
 class ProductService {
   async getProducts(): Promise<Product[]> {
     try {
-      const response = await axios.get(`${API_URL}/products`)
+      const response = await api.get('/products')
       return response.data
     } catch (error) {
       console.error('Error fetching products:', error)
@@ -15,9 +13,10 @@ class ProductService {
     }
   }
 
+
   async getProduct(id: string): Promise<Product> {
     try {
-      const response = await axios.get(`${API_URL}/products/${id}`)
+      const response = await api.get(`/products/${id}`)
       return response.data
     } catch (error) {
       console.error('Error fetching product:', error)
@@ -27,7 +26,7 @@ class ProductService {
 
   async createProduct(productData: Partial<Product>): Promise<Product> {
     try {
-      const response = await axios.post(`${API_URL}/products`, productData)
+      const response = await api.post('/products', productData)
       return response.data
     } catch (error) {
       console.error('Error creating product:', error)
@@ -37,7 +36,7 @@ class ProductService {
 
   async updateProduct(id: string, productData: Partial<Product>): Promise<Product> {
     try {
-      const response = await axios.put(`${API_URL}/products/${id}`, productData)
+      const response = await api.put(`/products/${id}`, productData)
       return response.data
     } catch (error) {
       console.error('Error updating product:', error)
@@ -47,7 +46,7 @@ class ProductService {
 
   async deleteProduct(id: string): Promise<{ success: boolean; message: string }> {
     try {
-      const response = await axios.delete(`${API_URL}/products/${id}`)
+      const response = await api.delete(`/products/${id}`)
       return response.data
     } catch (error) {
       console.error('Error deleting product:', error)
@@ -57,7 +56,7 @@ class ProductService {
 
   async updateStock(id: string, stockCount: number): Promise<Product> {
     try {
-      const response = await axios.patch(`${API_URL}/products/${id}/stock`, { stockCount })
+      const response = await api.patch(`/products/${id}/stock`, { stockCount })
       return response.data
     } catch (error) {
       console.error('Error updating stock:', error)

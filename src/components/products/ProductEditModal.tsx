@@ -76,7 +76,7 @@ const ProductEditModal = ({ product, onClose, onSave }: ProductEditModalProps) =
 		if (!formData.subcategory.trim()) newErrors.subcategory = "Subcategory is required";
 		if (!formData.sku.trim()) newErrors.sku = "SKU is required";
 		if (formData.stockCount < 0) newErrors.stockCount = "Stock count cannot be negative";
-		if (formData.originalPrice && formData.originalPrice < formData.price) {
+		if (formData.originalPrice < formData.price) {
 			newErrors.originalPrice = "Original price must be greater than or equal to current price";
 		}
 
