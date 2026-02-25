@@ -194,8 +194,16 @@ const SalesRepOrderPage = () => {
 			return false;
 		}
 
-		if (!customerInfo.firstName || !customerInfo.lastName || !customerInfo.phone || 
-			!customerInfo.street || !customerInfo.city || !customerInfo.state || !customerInfo.zipCode) {
+		if (
+			!customerInfo.firstName ||
+			!customerInfo.lastName ||
+			!customerInfo.email ||
+			!customerInfo.phone ||
+			!customerInfo.street ||
+			!customerInfo.city ||
+			!customerInfo.state ||
+			!customerInfo.zipCode
+		) {
 			showErrorToast("Please fill in all required customer information");
 			return false;
 		}
@@ -445,13 +453,14 @@ const SalesRepOrderPage = () => {
 
 							<div>
 								<label className="block text-sm font-medium text-gray-700 mb-1">
-									Email
+									Email *
 								</label>
 								<input
 									type="email"
 									value={customerInfo.email}
 									onChange={(e) => handleCustomerInfoChange("email", e.target.value)}
 									className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+									required
 								/>
 							</div>
 

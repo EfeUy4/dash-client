@@ -4,7 +4,11 @@ export interface Product {
 	name: string;
 	description: string;
 	price: number;
+	priceUSD?: number;
+	priceNGN?: number;
 	originalPrice?: number;
+	originalPriceUSD?: number;
+	originalPriceNGN?: number;
 	images: string[];
 	category: string;
 	subcategory: string;
@@ -29,6 +33,10 @@ export interface Product {
 	seoTitle?: string;
 	seoDescription?: string;
 	discountPercentage: number;
+	currency?: {
+		usdToNgnRate: number;
+		lastUpdated: string;
+	};
 	createdAt: Date;
 	updatedAt: Date;
 }

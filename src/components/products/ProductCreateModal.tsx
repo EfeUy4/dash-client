@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X, Plus, Minus } from "lucide-react";
 import api from "@/utils/api";
 import { useToastUtils } from "@/services/toast";
@@ -87,9 +87,24 @@ const ProductCreateModal = ({ onClose, onSave }: ProductCreateModalProps) => {
 	const [categories] = useState(PRODUCT_CATEGORIES);
 	const [loading, setLoading] = useState(false);
 	const [errors, setErrors] = useState<Record<string, string>>({});
+	const [exchangeRate, setExchangeRate] = useState<number | null>(null);
 	const { showSuccessToast, showErrorToast } = useToastUtils();
 
 	// No need to fetch categories anymore since they're predefined
+	useEffect(() => {
+		const fetchExchangeRate = async () => {
+			try {
+				const response = await api.get("/settings/exchange-rate");
+				if (response.data?.settings?.usdToNgnRate) {
+					setExchangeRate(response.data.settings.usdToNgnRate);
+				}
+			} catch {
+				setExchangeRate(null);
+			}
+		};
+
+		fetchExchangeRate();
+	}, []);
 
 	const validateForm = () => {
 		const newErrors: Record<string, string> = {};
@@ -324,7 +339,7 @@ const ProductCreateModal = ({ onClose, onSave }: ProductCreateModalProps) => {
 									<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 										<div>
 											<label htmlFor="price" className="block text-sm font-medium text-gray-700">
-												Price (₦) *
+												Price (USD) *
 											</label>
 											<input
 												type="number"
@@ -339,12 +354,17 @@ const ProductCreateModal = ({ onClose, onSave }: ProductCreateModalProps) => {
 													errors.price ? "border-red-300" : "border-gray-300"
 												}`}
 											/>
+											{exchangeRate !== null && formData.price > 0 && (
+												<p className="mt-1 text-xs text-gray-500">
+													≈ ₦{Math.round(formData.price * exchangeRate).toLocaleString()}
+												</p>
+											)}
 											{errors.price && <p className="mt-1 text-sm text-red-600">{errors.price}</p>}
 										</div>
 
 										<div>
 											<label htmlFor="originalPrice" className="block text-sm font-medium text-gray-700">
-												Original Price (₦)
+												Original Price (USD)
 											</label>
 											<input
 												type="number"
@@ -358,6 +378,11 @@ const ProductCreateModal = ({ onClose, onSave }: ProductCreateModalProps) => {
 													errors.originalPrice ? "border-red-300" : "border-gray-300"
 												}`}
 											/>
+											{exchangeRate !== null && formData.originalPrice > 0 && (
+												<p className="mt-1 text-xs text-gray-500">
+													≈ ₦{Math.round(formData.originalPrice * exchangeRate).toLocaleString()}
+												</p>
+											)}
 											{errors.originalPrice && <p className="mt-1 text-sm text-red-600">{errors.originalPrice}</p>}
 										</div>
 

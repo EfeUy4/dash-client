@@ -1,6 +1,6 @@
 // services/orderService.ts
 import { Order } from "@/data/types";
-import axios from "axios";
+import api from "@/utils/api";
 
 interface CreateOrderData {
 	items: Array<{
@@ -47,7 +47,7 @@ interface UpdateOrderData {
 class OrderService {
 	async getOrders(): Promise<Order[]> {
 		try {
-			const response = await axios.get(`${import.meta.env.VITE_API_URL}/orders`);
+			const response = await api.get("/orders");
 			return response.data;
 		} catch (error) {
 			console.error("Error fetching orders:", error);
@@ -57,7 +57,7 @@ class OrderService {
 
 	async getMyOrders(): Promise<Order[]> {
 		try {
-			const response = await axios.get(`${import.meta.env.VITE_API_URL}/orders/my`);
+			const response = await api.get("/orders/my");
 			return response.data;
 		} catch (error) {
 			console.error("Error fetching my orders:", error);
@@ -67,7 +67,7 @@ class OrderService {
 
 	async getOrder(id: string): Promise<Order> {
 		try {
-			const response = await axios.get(`${import.meta.env.VITE_API_URL}/orders/${id}`);
+			const response = await api.get(`/orders/${id}`);
 			return response.data;
 		} catch (error) {
 			console.error("Error fetching order:", error);
@@ -77,7 +77,7 @@ class OrderService {
 
 	async createOrder(orderData: CreateOrderData): Promise<Order> {
 		try {
-			const response = await axios.post(`${import.meta.env.VITE_API_URL}/orders`, orderData);
+			const response = await api.post("/orders", orderData);
 			return response.data;
 		} catch (error) {
 			console.error("Error creating order:", error);
@@ -87,7 +87,7 @@ class OrderService {
 
 	async updateOrder(id: string, updates: UpdateOrderData): Promise<Order> {
 		try {
-			const response = await axios.patch(`${import.meta.env.VITE_API_URL}/orders/${id}`, updates);
+			const response = await api.patch(`/orders/${id}`, updates);
 			return response.data;
 		} catch (error) {
 			console.error("Error updating order:", error);
@@ -97,7 +97,7 @@ class OrderService {
 
 	async updateOrderStatus(id: string, status: string, trackingNumber?: string): Promise<Order> {
 		try {
-			const response = await axios.patch(`${import.meta.env.VITE_API_URL}/orders/${id}/status`, {
+			const response = await api.patch(`/orders/${id}/status`, {
 				status,
 				trackingNumber,
 			});
@@ -110,7 +110,7 @@ class OrderService {
 
 	async cancelOrder(id: string, reason?: string): Promise<Order> {
 		try {
-			const response = await axios.patch(`${import.meta.env.VITE_API_URL}/orders/${id}/cancel`, { reason });
+			const response = await api.patch(`/orders/${id}/cancel`, { reason });
 			return response.data;
 		} catch (error) {
 			console.error("Error cancelling order:", error);

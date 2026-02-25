@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X, Plus, Minus } from "lucide-react";
 import api from "@/utils/api";
 import { useToastUtils } from "@/services/toast";
@@ -31,11 +31,11 @@ interface ProductEditModalProps {
 }
 
 const ProductEditModal = ({ product, onClose, onSave }: ProductEditModalProps) => {
-  const [formData, setFormData] = useState({
+	const [formData, setFormData] = useState({
 		name: product.name,
 		description: product.description,
-		price: product.price,
-		originalPrice: product.originalPrice || 0,
+		price: product.priceUSD ?? product.price,
+		originalPrice: product.originalPriceUSD ?? product.originalPrice ?? 0,
 		images: product.images || [],
 		category: product.category,
 		subcategory: product.subcategory,
@@ -62,9 +62,28 @@ const ProductEditModal = ({ product, onClose, onSave }: ProductEditModalProps) =
 	const [categories] = useState(PRODUCT_CATEGORIES);
 	const [loading, setLoading] = useState(false);
 	const [errors, setErrors] = useState<Record<string, string>>({});
+	const [exchangeRate, setExchangeRate] = useState<number | null>(
+		product.currency?.usdToNgnRate ?? null,
+	);
 	const { showSuccessToast, showErrorToast } = useToastUtils();
 
 	// No need to fetch categories anymore since they're predefined
+	useEffect(() => {
+		if (exchangeRate !== null) return;
+
+		const fetchExchangeRate = async () => {
+			try {
+				const response = await api.get("/settings/exchange-rate");
+				if (response.data?.settings?.usdToNgnRate) {
+					setExchangeRate(response.data.settings.usdToNgnRate);
+				}
+			} catch {
+				setExchangeRate(null);
+			}
+		};
+
+		fetchExchangeRate();
+	}, [exchangeRate]);
 
 	const validateForm = () => {
 		const newErrors: Record<string, string> = {};
@@ -76,7 +95,7 @@ const ProductEditModal = ({ product, onClose, onSave }: ProductEditModalProps) =
 		if (!formData.subcategory.trim()) newErrors.subcategory = "Subcategory is required";
 		if (!formData.sku.trim()) newErrors.sku = "SKU is required";
 		if (formData.stockCount < 0) newErrors.stockCount = "Stock count cannot be negative";
-		if (formData.originalPrice < formData.price) {
+		if (formData.originalPrice && formData.originalPrice < formData.price) {
 			newErrors.originalPrice = "Original price must be greater than or equal to current price";
 		}
 
@@ -307,7 +326,7 @@ const ProductEditModal = ({ product, onClose, onSave }: ProductEditModalProps) =
 									<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 										<div>
 											<label htmlFor="price" className="block text-sm font-medium text-gray-700">
-												Price (₦) *
+												Price (USD) *
 											</label>
 											<input
 												type="number"
@@ -322,12 +341,17 @@ const ProductEditModal = ({ product, onClose, onSave }: ProductEditModalProps) =
 													errors.price ? "border-red-300" : "border-gray-300"
 												}`}
 											/>
+											{exchangeRate !== null && formData.price > 0 && (
+												<p className="mt-1 text-xs text-gray-500">
+													≈ ₦{Math.round(formData.price * exchangeRate).toLocaleString()}
+												</p>
+											)}
 											{errors.price && <p className="mt-1 text-sm text-red-600">{errors.price}</p>}
 										</div>
 
 										<div>
 											<label htmlFor="originalPrice" className="block text-sm font-medium text-gray-700">
-												Original Price (₦)
+												Original Price (USD)
 											</label>
 											<input
 												type="number"
@@ -341,6 +365,11 @@ const ProductEditModal = ({ product, onClose, onSave }: ProductEditModalProps) =
 													errors.originalPrice ? "border-red-300" : "border-gray-300"
 												}`}
 											/>
+											{exchangeRate !== null && formData.originalPrice > 0 && (
+												<p className="mt-1 text-xs text-gray-500">
+													≈ ₦{Math.round(formData.originalPrice * exchangeRate).toLocaleString()}
+												</p>
+											)}
 											{errors.originalPrice && (
 												<p className="mt-1 text-sm text-red-600">{errors.originalPrice}</p>
 											)}

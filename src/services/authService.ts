@@ -85,6 +85,34 @@ class AuthService {
 		}
 	}
 
+	async requestPasswordResetOtp(email: string) {
+		try {
+			const response = await axios.post(`${API_URL}/auth/forgot-password`, { email });
+			return response.data;
+		} catch (error) {
+			if (axios.isAxiosError(error)) {
+				throw new Error(error.response?.data?.message || "Failed to send reset code");
+			}
+			throw new Error("Network error");
+		}
+	}
+
+	async resetPasswordWithOtp(email: string, otp: string, newPassword: string) {
+		try {
+			const response = await axios.post(`${API_URL}/auth/reset-password`, {
+				email,
+				otp,
+				newPassword,
+			});
+			return response.data;
+		} catch (error) {
+			if (axios.isAxiosError(error)) {
+				throw new Error(error.response?.data?.message || "Failed to reset password");
+			}
+			throw new Error("Network error");
+		}
+	}
+
 	async getCurrentUser() {
 		if (!this.token) {
 			return null;

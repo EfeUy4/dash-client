@@ -13,6 +13,7 @@ import NewArrivalsPage from "./pages/NewArrivalsPage";
 import SupportPage from "./pages/SupportPage";
 import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
+import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
 import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import WishlistPage from "./pages/WishlistPage";
@@ -97,6 +98,14 @@ function App() {
 					element={
 						<AuthPageProtectedRoute>
 							<RegisterPage />
+						</AuthPageProtectedRoute>
+					}
+				/>
+				<Route
+					path="/forgot-password"
+					element={
+						<AuthPageProtectedRoute>
+							<ForgotPasswordPage />
 						</AuthPageProtectedRoute>
 					}
 				/>
