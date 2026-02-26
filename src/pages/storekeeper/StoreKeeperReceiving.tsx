@@ -364,22 +364,26 @@ const StoreKeeperReceiving = () => {
 								>
 									<div className="flex justify-between items-start mb-2">
 										<div>
-											<p className="font-medium text-gray-900">{record.product.name}</p>
-											<p className="text-sm text-gray-600">{record.product.category}</p>
+											<p className="font-medium text-gray-900">
+												{record.product?.name || "Deleted Product"}
+											</p>
+											<p className="text-sm text-gray-600">
+												{record.product?.category || "N/A"}
+											</p>
 										</div>
 										<div className="text-right">
 											<p className="font-semibold text-orange-600">+{record.quantity}</p>
 											<p className="text-xs text-gray-500">{getTimeAgo(record.receivedAt)}</p>
 										</div>
 									</div>
-									
+
 									{record.note && (
 										<p className="text-sm text-gray-600 mb-2 italic">"{record.note}"</p>
 									)}
-									
+
 									<div className="flex justify-between items-center text-xs text-gray-500">
 										<span>
-											by {record.receivedBy.firstName} {record.receivedBy.lastName}
+											by {record.receivedBy?.firstName || "Unknown"} {record.receivedBy?.lastName || "User"}
 										</span>
 										<span>
 											{new Date(record.receivedAt).toLocaleDateString()}
