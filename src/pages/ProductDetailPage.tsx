@@ -524,7 +524,7 @@ const ProductDetailPage = () => {
 								<RotateCcw className="w-5 h-5 text-neutral-400" />
 								<div>
 									<p className="text-sm font-medium text-neutral-900">Easy Returns</p>
-									<p className="text-xs text-neutral-600">30-day return policy</p>
+									<p className="text-xs text-neutral-600">7-day return policy</p>
 								</div>
 							</div>
 							<div className="flex items-center space-x-3">

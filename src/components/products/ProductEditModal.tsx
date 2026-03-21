@@ -24,6 +24,11 @@ const PRODUCT_CATEGORIES = [
 	"Casual Wear",
 ];
 
+const GENDER_OPTIONS = [
+	{ value: "male", label: "Male" },
+	{ value: "female", label: "Female" },
+] as const;
+
 interface ProductEditModalProps {
 	product: Product;
 	onClose: () => void;
@@ -39,6 +44,7 @@ const ProductEditModal = ({ product, onClose, onSave }: ProductEditModalProps) =
 		images: product.images || [],
 		category: product.category,
 		subcategory: product.subcategory,
+		gender: product.gender || ("" as "" | "male" | "female"),
 		sizes: product.sizes.length > 0 ? product.sizes : [""],
 		colors: product.colors.length > 0 ? product.colors : [""],
 		stockCount: product.stockCount,
@@ -93,6 +99,7 @@ const ProductEditModal = ({ product, onClose, onSave }: ProductEditModalProps) =
 		if (formData.price <= 0) newErrors.price = "Price must be greater than 0";
 		if (!formData.category) newErrors.category = "Category is required";
 		if (!formData.subcategory.trim()) newErrors.subcategory = "Subcategory is required";
+		if (!formData.gender) newErrors.gender = "Gender is required";
 		if (!formData.sku.trim()) newErrors.sku = "SKU is required";
 		if (formData.stockCount < 0) newErrors.stockCount = "Stock count cannot be negative";
 		if (formData.originalPrice && formData.originalPrice < formData.price) {
@@ -316,6 +323,30 @@ const ProductEditModal = ({ product, onClose, onSave }: ProductEditModalProps) =
 											{errors.subcategory && (
 												<p className="mt-1 text-sm text-red-600">{errors.subcategory}</p>
 											)}
+										</div>
+
+										<div>
+											<label htmlFor="gender" className="block text-sm font-medium text-gray-700">
+												Gender *
+											</label>
+											<select
+												name="gender"
+												id="gender"
+												required
+												value={formData.gender}
+												onChange={handleChange}
+												className={`mt-1 block w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-purple-500 focus:border-purple-500 ${
+													errors.gender ? "border-red-300" : "border-gray-300"
+												}`}
+											>
+												<option value="">Select Gender</option>
+												{GENDER_OPTIONS.map((option) => (
+													<option key={option.value} value={option.value}>
+														{option.label}
+													</option>
+												))}
+											</select>
+											{errors.gender && <p className="mt-1 text-sm text-red-600">{errors.gender}</p>}
 										</div>
 									</div>
 								</div>

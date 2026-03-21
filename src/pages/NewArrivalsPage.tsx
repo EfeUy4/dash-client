@@ -11,6 +11,7 @@ import {
 	selectHasBeenFetched,
 } from "@/redux/selectors/productsSelectors";
 import { fetchProducts } from "@/redux/thunks/products";
+import { getGenderLabel } from "@/utils/productClassification";
 
 const NewArrivalsPage = () => {
 	const dispatch = useAppDispatch();
@@ -24,6 +25,7 @@ const NewArrivalsPage = () => {
 	const [showFilters, setShowFilters] = useState(false);
 	const [filters, setFilters] = useState({
 		category: searchParams.get("category") || "",
+		gender: searchParams.get("gender") || "",
 		priceRange: [0, 500000],
 		sizes: [] as string[],
 		colors: [] as string[],
@@ -53,6 +55,19 @@ const NewArrivalsPage = () => {
 		return Array.from(categorySet).map((name) => ({ id: name.toLowerCase(), name }));
 	}, [products]);
 
+	const genders = useMemo(() => {
+		const genderSet = new Set(
+			products
+				.map((product) => {
+					const label = getGenderLabel(product.gender, product.category, product.subcategory);
+					return label?.toLowerCase() || "";
+				})
+				.filter(Boolean),
+		);
+
+		return Array.from(genderSet).map((value) => ({ id: value, name: value === "male" ? "Male" : "Female" }));
+	}, [products]);
+
 	// Available filter options (computed from Redux new products)
 	const allSizes = useMemo(() => Array.from(new Set(products.flatMap((p) => p.sizes || []))), [products]);
 
@@ -70,6 +85,13 @@ const NewArrivalsPage = () => {
 		// Category filter
 		if (filters.category) {
 			filtered = filtered.filter((p) => p.category.toLowerCase() === filters.category.toLowerCase());
+		}
+
+		if (filters.gender) {
+			filtered = filtered.filter((p) => {
+				const label = getGenderLabel(p.gender, p.category, p.subcategory);
+				return label?.toLowerCase() === filters.gender.toLowerCase();
+			});
 		}
 
 		// Price filter
@@ -120,12 +142,12 @@ const NewArrivalsPage = () => {
 		setFilters((prev) => ({ ...prev, [key]: value }));
 
 		// Update URL params for category and sort
-		if (key === "category" || key === "sortBy") {
+		if (key === "category" || key === "sortBy" || key === "gender") {
 			const newParams = new URLSearchParams(searchParams);
 			if (value) {
-				newParams.set(key === "category" ? "category" : "sort", value);
+				newParams.set(key === "category" ? "category" : key === "gender" ? "gender" : "sort", value);
 			} else {
-				newParams.delete(key === "category" ? "category" : "sort");
+				newParams.delete(key === "category" ? "category" : key === "gender" ? "gender" : "sort");
 			}
 			setSearchParams(newParams);
 		}
@@ -141,6 +163,7 @@ const NewArrivalsPage = () => {
 	const clearFilters = () => {
 		setFilters({
 			category: "",
+			gender: "",
 			priceRange: [0, maxPrice],
 			sizes: [],
 			colors: [],
@@ -316,6 +339,42 @@ const NewArrivalsPage = () => {
 								</div>
 							</div>
 
+							{genders.length > 0 && (
+								<div className="mb-6">
+									<h4 className="font-medium text-neutral-900 mb-3">Gender</h4>
+									<div className="space-y-2">
+										<button
+											onClick={() => handleFilterChange("gender", "")}
+											className={`block w-full text-left text-sm py-1 transition-colors ${
+												!filters.gender ? "text-neutral-900 font-medium" : "text-neutral-600 hover:text-neutral-900"
+											}`}
+										>
+											All Genders
+										</button>
+										{genders.map((gender) => {
+											const genderCount = products.filter((product) => {
+												const label = getGenderLabel(product.gender, product.category, product.subcategory);
+												return label?.toLowerCase() === gender.id;
+											}).length;
+
+											return (
+												<button
+													key={gender.id}
+													onClick={() => handleFilterChange("gender", gender.id)}
+													className={`block w-full text-left text-sm py-1 transition-colors ${
+														filters.gender === gender.id
+															? "text-neutral-900 font-medium"
+															: "text-neutral-600 hover:text-neutral-900"
+													}`}
+												>
+													{gender.name} ({genderCount})
+												</button>
+											);
+										})}
+									</div>
+								</div>
+							)}
+
 							{/* Price Range */}
 							<div className="mb-6">
 								<h4 className="font-medium text-neutral-900 mb-3">Price Range</h4>
@@ -447,13 +506,24 @@ const NewArrivalsPage = () => {
 						</div>
 
 						{/* Active Filters */}
-						{(filters.category || filters.sizes.length > 0 || filters.colors.length > 0) && (
+						{(filters.category || filters.gender || filters.sizes.length > 0 || filters.colors.length > 0) && (
 							<div className="flex flex-wrap gap-2 mb-6">
 								{filters.category && (
 									<span className="inline-flex items-center px-3 py-1 bg-emerald-600 text-white text-sm rounded-full">
 										{filters.category}
 										<button
 											onClick={() => handleFilterChange("category", "")}
+											className="ml-2 hover:text-emerald-200"
+										>
+											<X className="w-3 h-3" />
+										</button>
+									</span>
+								)}
+								{filters.gender && (
+									<span className="inline-flex items-center px-3 py-1 bg-emerald-600 text-white text-sm rounded-full">
+										{filters.gender === "male" ? "Male" : "Female"}
+										<button
+											onClick={() => handleFilterChange("gender", "")}
 											className="ml-2 hover:text-emerald-200"
 										>
 											<X className="w-3 h-3" />

@@ -9,6 +9,7 @@ interface Product {
 	images: string[];
 	category: string;
 	subcategory: string;
+	gender?: "male" | "female";
 	sizes: string[];
 	colors: string[];
 	inStock: boolean;
@@ -227,6 +228,12 @@ const ProductViewModal = ({ product, onClose, onEdit }: ProductViewModalProps) =
 											<div className="flex justify-between items-center">
 												<span className="text-sm text-gray-600">Category:</span>
 												<span className="text-sm font-medium text-gray-900">{product.category}</span>
+											</div>
+											<div className="flex justify-between items-center">
+												<span className="text-sm text-gray-600">Gender:</span>
+												<span className="text-sm font-medium text-gray-900">
+													{product.gender ? product.gender.charAt(0).toUpperCase() + product.gender.slice(1) : "N/A"}
+												</span>
 											</div>
 											<div className="flex justify-between items-center">
 												<span className="text-sm text-gray-600">Subcategory:</span>

@@ -287,9 +287,8 @@ const SupportPage = () => {
 										<Clock className="w-5 h-5 text-neutral-400 mt-1" />
 										<div>
 											<p className="font-medium text-neutral-900">Store Hours</p>
-											<p className="text-neutral-600">Monday - Friday: 10AM - 8PM</p>
-											<p className="text-neutral-600">Saturday: 10AM - 6PM</p>
-											<p className="text-neutral-600">Sunday: 12PM - 5PM</p>
+											<p className="text-neutral-600">Monday - Saturday: 9AM - 6PM</p>
+											<p className="text-neutral-600">Closed on Sundays</p>
 										</div>
 									</div>
 								</div>
