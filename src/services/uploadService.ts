@@ -42,7 +42,7 @@ class UploadService {
     return { valid: true }
   }
 
-  getThumbnailUrl(imageUrl: string): string {
+  getThumbnailUrl(imageUrl: string, _width?: number, _height?: number): string {
     return imageUrl
   }
 }
