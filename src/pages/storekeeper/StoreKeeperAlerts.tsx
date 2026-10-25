@@ -4,14 +4,14 @@ import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import {
 	selectProductError,
 	selectProductLoading,
-	selectProducts,
+	selectAllProducts,
 	selectHasBeenFetched,
 } from "@/redux/selectors/productsSelectors";
 import { fetchProducts } from "@/redux/thunks/products";
 
 const StoreKeeperAlerts = () => {
 	const dispatch = useAppDispatch();
-	const products = useAppSelector(selectProducts);
+	const products = useAppSelector(selectAllProducts);
 	const isLoading = useAppSelector(selectProductLoading);
 	const error = useAppSelector(selectProductError);
 	const hasBeenFetched = useAppSelector(selectHasBeenFetched);

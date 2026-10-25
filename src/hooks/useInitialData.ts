@@ -1,14 +1,14 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { selectOrders } from "@/redux/selectors/ordersSelectors";
-import { selectProducts } from "@/redux/selectors/productsSelectors";
+import { selectAllProducts } from "@/redux/selectors/productsSelectors";
 import { fetchOrders } from "@/redux/thunks/orders";
 import { fetchProducts } from "@/redux/thunks/products";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 export function useInitialData() {
 	const dispatch = useAppDispatch();
-	const products = useAppSelector(selectProducts);
+	const products = useAppSelector(selectAllProducts);
 	const orders = useAppSelector(selectOrders);
 	const { user } = useAuth();
 
@@ -22,4 +22,14 @@ export function useInitialData() {
 			}
 		}
 	}, [dispatch, products.length, orders.length, user?.role]);
+
+	// Staff see private-sale products: reload the catalog when a staff session starts or ends
+	const isStaff = !!user && user.role !== "customer";
+	const previousIsStaff = useRef(isStaff);
+	useEffect(() => {
+		if (previousIsStaff.current !== isStaff) {
+			previousIsStaff.current = isStaff;
+			dispatch(fetchProducts());
+		}
+	}, [dispatch, isStaff]);
 }

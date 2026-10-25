@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Package, Search, CheckCircle, Truck, AlertTriangle, RefreshCw } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import {
-	selectProducts,
+	selectAllProducts,
 	selectProductLoading,
 	selectProductError,
 	selectHasBeenFetched,
@@ -43,7 +43,7 @@ const StoreKeeperReceiving = () => {
 	const { showSuccessToast, showErrorToast } = useToastUtils();
 
 	// Redux selectors
-	const products = useAppSelector(selectProducts);
+	const products = useAppSelector(selectAllProducts);
 	const productsLoading = useAppSelector(selectProductLoading);
 	const productsError = useAppSelector(selectProductError);
 	const hasBeenFetched = useAppSelector(selectHasBeenFetched);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, Check, MapPin, User, Mail, Phone, Lock } from "lucide-react";
@@ -8,6 +8,8 @@ import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
 import { useToastUtils } from "@/services/toast";
 import Paystack from "@paystack/inline-js";
+import { paymentService, OrderQuote } from "@/services/paymentService";
+import { orderService } from "@/services/orderService";
 
 // Import Paystack
 declare global {
@@ -19,6 +21,7 @@ declare global {
 const CheckoutPage = () => {
 	const { items, total, clearCart } = useCart();
 	const { user, isAuthenticated } = useAuth();
+	const [quote, setQuote] = useState<OrderQuote | null>(null);
 	const { showSuccessToast, showErrorToast } = useToastUtils();
 	const navigate = useNavigate();
 
@@ -40,8 +43,36 @@ const CheckoutPage = () => {
 		country: "Nigeria",
 	});
 
-	const shipping = total > 50000 ? 0 : 0;
-	const finalTotal = total + shipping;
+	const quoteItems = items.map((item) => ({
+		productId: item.productId,
+		quantity: item.quantity,
+		size: item.size,
+		color: item.color,
+	}));
+
+	// Totals and shipping come from the server (POST /orders/quote) so the charge always matches
+	useEffect(() => {
+		if (items.length === 0) {
+			setQuote(null);
+			return;
+		}
+		let cancelled = false;
+		paymentService
+			.getQuote({ items: quoteItems })
+			.then((result) => !cancelled && setQuote(result))
+			.catch((error) => {
+				console.error("Failed to fetch order quote:", error);
+				if (!cancelled) setQuote(null);
+			});
+		return () => {
+			cancelled = true;
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [JSON.stringify(quoteItems)]);
+
+	const subtotal = quote?.subtotal ?? total;
+	const shipping = quote?.shipping ?? 0;
+	const finalTotal = quote?.total ?? total;
 
 	const formatPrice = (price: number) => {
 		return new Intl.NumberFormat("en-NG", {
@@ -81,13 +112,24 @@ const CheckoutPage = () => {
 		setIsProcessing(true);
 
 		try {
+			// Always charge a fresh server quote
+			let freshQuote: OrderQuote;
+			try {
+				freshQuote = await paymentService.getQuote({ items: quoteItems });
+				setQuote(freshQuote);
+			} catch (error: any) {
+				showErrorToast(error.message || "Unable to calculate your order total. Please try again.");
+				setIsProcessing(false);
+				return;
+			}
+
 			// Initialize Paystack popup
 			const popup = new Paystack();
 
 			popup.checkout({
 				key: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY,
 				email: formData.email,
-				amount: Math.round(finalTotal * 100), // Convert to kobo
+				amount: freshQuote.amountKobo, // Exact server-quoted amount in kobo
 				currency: "NGN",
 				phone: formData.phone,
 				channels: ["card", "ussd", "qr", "eft", "mobile_money", "bank_transfer"],
@@ -96,72 +138,38 @@ const CheckoutPage = () => {
 					try {
 						console.log("Payment successful:", response);
 
-						// First, verify the payment with Paystack
-						const verificationResponse = await fetch(
-							`${import.meta.env.VITE_API_URL}/orders/verify-payment`,
-							{
-								method: "POST",
-								headers: {
-									"Content-Type": "application/json",
-								},
-								body: JSON.stringify({
-									reference: response.reference,
-									expectedAmount: Math.round(finalTotal * 100), // Amount in kobo
-								}),
-							},
+						// First, verify the payment with Paystack (server checks the amount)
+						const verificationData = await paymentService.verifyPayment(
+							response.reference,
+							freshQuote.amountKobo,
 						);
-
-						if (!verificationResponse.ok) {
-							const verificationError = await verificationResponse.json();
-							throw new Error(verificationError.message || "Payment verification failed");
-						}
-
-						const verificationData = await verificationResponse.json();
 
 						// Only create order if payment is verified
 						if (verificationData.verified) {
-							const orderResponse = await fetch(`${import.meta.env.VITE_API_URL}/orders`, {
-								method: "POST",
-								headers: {
-									"Content-Type": "application/json",
+							// api attaches the Bearer token when logged in; the server never trusts a body userId
+							const order = await orderService.createOrder({
+								items: quoteItems,
+								shippingAddress: {
+									firstName: formData.firstName,
+									lastName: formData.lastName,
+									email: formData.email,
+									phone: formData.phone,
+									street: formData.address,
+									city: formData.city,
+									state: formData.state,
+									zipCode: formData.zipCode,
+									country: formData.country,
 								},
-                body: JSON.stringify({
-                  userId: user?.id || null,
-									items: items.map((item) => ({
-										productId: item.id,
-										quantity: item.quantity,
-										size: item.size,
-										color: item.color,
-									})),
-									shippingAddress: {
-										firstName: formData.firstName,
-										lastName: formData.lastName,
-										email: formData.email,
-										phone: formData.phone,
-										street: formData.address,
-										city: formData.city,
-										state: formData.state,
-										zipCode: formData.zipCode,
-										country: formData.country,
-									},
-									paymentMethod: "paystack",
-									paymentDetails: {
-										reference: response.reference,
-										status: response.status,
-										trans: response.trans,
-										transaction: response.transaction,
-										trxref: response.trxref,
-										verificationData: verificationData.data,
-									},
-								}),
+								paymentMethod: "paystack",
+								paymentDetails: {
+									reference: response.reference,
+									status: response.status,
+									trans: response.trans,
+									transaction: response.transaction,
+									trxref: response.trxref,
+									verificationData: verificationData.data,
+								},
 							});
-
-							if (!orderResponse.ok) {
-								const errorData = await orderResponse.json();
-								throw new Error(errorData.message || "Failed to create order");
-							}
-
-							const order = await orderResponse.json();
 							setOrderData(order);
 
 							// Clear cart and show success
@@ -174,7 +182,7 @@ const CheckoutPage = () => {
 					} catch (error: any) {
 						console.error("Order creation failed:", error);
 						showErrorToast(
-							`Failed to process order: ${error.message}. Please contact support if payment was deducted.`,
+							`Failed to process order: ${error.message}. If you were charged, contact support with payment reference ${response.reference}.`,
 						);
 					} finally {
 						setIsProcessing(false);
@@ -475,7 +483,7 @@ const CheckoutPage = () => {
 							<div className="space-y-2 py-4 border-t border-neutral-200">
 								<div className="flex justify-between text-sm">
 									<span className="text-neutral-600">Subtotal</span>
-									<span className="font-medium">{formatPrice(total)}</span>
+									<span className="font-medium">{formatPrice(subtotal)}</span>
 								</div>
 								<div className="flex justify-between text-sm">
 									<span className="text-neutral-600">Shipping</span>

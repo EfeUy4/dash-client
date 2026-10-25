@@ -14,6 +14,7 @@ import {
 	LogOut,
 	Home,
 	Scan,
+	Link2,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import Logo from "../Logo";
@@ -26,6 +27,7 @@ const StoreKeeperSidebar = () => {
 	const navigation = [
 		{ name: "Inventory Overview", href: "/storekeeper", icon: Boxes },
 		{ name: "Products", href: "/storekeeper/products", icon: Package },
+		{ name: "Private Links", href: "/storekeeper/private-links", icon: Link2 },
 		{ name: "Order History", href: "/storekeeper/order-history", icon: ClipboardList },
 		{ name: "Receiving", href: "/storekeeper/receiving", icon: TruckIcon },
 		{ name: "Low Stock Alerts", href: "/storekeeper/alerts", icon: AlertTriangle },

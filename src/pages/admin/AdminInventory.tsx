@@ -15,7 +15,7 @@ import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import {
 	selectProductError,
 	selectProductLoading,
-	selectProducts,
+	selectAllProducts,
 	selectHasBeenFetched,
 } from "@/redux/selectors/productsSelectors";
 import { fetchProducts, deleteProduct } from "@/redux/thunks/products";
@@ -28,7 +28,7 @@ import { addNewProduct, applyUpdatedProduct } from "@/redux/slices/productsSlice
 
 const AdminInventory = () => {
 	const dispatch = useAppDispatch();
-	const products = useAppSelector(selectProducts);
+	const products = useAppSelector(selectAllProducts);
 	const isLoading = useAppSelector(selectProductLoading);
 	const error = useAppSelector(selectProductError);
 	const hasBeenFetched = useAppSelector(selectHasBeenFetched);
@@ -407,7 +407,19 @@ const AdminInventory = () => {
 													)}
 												</div>
 												<div className="ml-4">
-													<div className="text-sm font-medium text-gray-900">{product.name}</div>
+													<div className="text-sm font-medium text-gray-900">
+														{product.name}
+														{product.visibility === "private" && (
+															<span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+																Private sale
+															</span>
+														)}
+														{!product.isActive && (
+															<span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+																Inactive
+															</span>
+														)}
+													</div>
 													<div className="text-sm text-gray-500">SKU: {product.sku}</div>
 													{product.discountPercentage && product.discountPercentage > 0 && (
 														<span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">

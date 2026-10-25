@@ -1,57 +1,48 @@
-import axios from "axios";
-
 // services/paymentService.ts
-interface PaymentData {
-	amount: number;
-	email: string;
-	currency?: string;
-	callback_url?: string;
-	metadata?: any;
+import api from "@/utils/api";
+
+export interface QuoteItemInput {
+	productId: string;
+	quantity: number;
+	size?: string;
+	color?: string;
 }
 
-interface PaymentResponse {
-	success: boolean;
-	data: {
-		authorization_url: string;
-		access_code: string;
-		reference: string;
+export interface OrderQuote {
+	currency: "NGN";
+	items: Array<{
+		productId: string;
+		name: string;
+		image: string;
+		size?: string;
+		color?: string;
+		quantity: number;
+		unitPriceNGN: number;
+		available: boolean;
+	}>;
+	subtotal: number; // NGN
+	shipping: number; // NGN
+	total: number; // NGN
+	amountKobo: number; // exact amount Paystack must charge
+	shippingRule: {
+		freeShippingThresholdUSD: number;
+		feeUSD: number;
+		freeShippingThresholdNGN: number;
+		feeNGN: number;
 	};
+	privateLink?: { title: string; expiresAt: string };
 }
 
 class PaymentService {
-	async initializePayment(paymentData: PaymentData): Promise<PaymentResponse> {
-		try {
-			// In a real implementation, this would call your backend
-			// which would then call Paystack's API with your secret key
-			const response = await axios.post(`${import.meta.env.VITE_API_URL}/payments/initialize`, paymentData);
-			return response.data;
-		} catch (error) {
-			console.error("Error initializing payment:", error);
-			throw error;
-		}
+	// The server is the source of truth for totals and shipping; never compute the charge client-side
+	async getQuote(payload: { items: QuoteItemInput[] } | { privateLinkToken: string }): Promise<OrderQuote> {
+		const response = await api.post("/orders/quote", payload);
+		return response.data;
 	}
 
-	async verifyPayment(reference: string): Promise<any> {
-		try {
-			const response = await axios.get(`${import.meta.env.VITE_API_URL}/payments/verify/${reference}`);
-			return response.data;
-		} catch (error) {
-			console.error("Error verifying payment:", error);
-			throw error;
-		}
-	}
-
-	// Demo payment simulation
-	simulatePayment(amount: number, email: string): Promise<{ success: boolean; reference: string }> {
-		return new Promise((resolve) => {
-			setTimeout(() => {
-				console.log(amount, email);
-				resolve({
-					success: true,
-					reference: `demo_${Date.now()}_${Math.random().toString(36).substring(7)}`,
-				});
-			}, 2000); // Simulate 2 second processing time
-		});
+	async verifyPayment(reference: string, expectedAmount?: number): Promise<any> {
+		const response = await api.post("/orders/verify-payment", { reference, expectedAmount });
+		return response.data;
 	}
 }
 

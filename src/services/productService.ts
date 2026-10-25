@@ -2,10 +2,23 @@
 import { Product } from '@/data/types'
 import api from '@/utils/api'
 
+const STAFF_ROLES = ['admin', 'salesrep', 'storekeeper']
+
+// Staff load every product (including private-sale and inactive) for management screens;
+// storefront pages filter them out via selectProducts.
+const isStaffSession = () => {
+  try {
+    const user = JSON.parse(localStorage.getItem('dashngshop-user') || 'null')
+    return !!user && STAFF_ROLES.includes(user.role) && !!localStorage.getItem('dashngshop-token')
+  } catch {
+    return false
+  }
+}
+
 class ProductService {
   async getProducts(): Promise<Product[]> {
     try {
-      const response = await api.get('/products')
+      const response = await api.get(isStaffSession() ? '/products/admin/all' : '/products')
       return response.data
     } catch (error) {
       console.error('Error fetching products:', error)
@@ -13,6 +26,16 @@ class ProductService {
     }
   }
 
+
+  async updateVisibility(id: string, visibility: 'public' | 'private'): Promise<Product> {
+    try {
+      const response = await api.patch(`/products/${id}/visibility`, { visibility })
+      return response.data
+    } catch (error) {
+      console.error('Error updating product visibility:', error)
+      throw error
+    }
+  }
 
   async getProduct(id: string): Promise<Product> {
     try {

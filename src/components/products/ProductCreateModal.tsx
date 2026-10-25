@@ -20,6 +20,7 @@ interface NewProduct {
 	isNewProduct: boolean;
 	isFeatured: boolean;
 	isActive: boolean;
+	visibility: "public" | "private";
 	tags: string[];
 	sku: string;
 	weight?: number;
@@ -79,6 +80,7 @@ const ProductCreateModal = ({ onClose, onSave }: ProductCreateModalProps) => {
 		isNewProduct: false,
 		isFeatured: false,
 		isActive: true,
+		visibility: "public",
 		tags: [""],
 		sku: "",
 		weight: 0,
@@ -602,6 +604,27 @@ const ProductCreateModal = ({ onClose, onSave }: ProductCreateModalProps) => {
 											<label htmlFor="isActive" className="ml-2 block text-sm text-gray-900">
 												Active Product
 											</label>
+										</div>
+
+										<div>
+											<label htmlFor="visibility" className="block text-sm font-medium text-gray-700 mb-1">
+												Visibility
+											</label>
+											<select
+												name="visibility"
+												id="visibility"
+												value={formData.visibility}
+												onChange={(e) =>
+													setFormData((prev) => ({
+														...prev,
+														visibility: e.target.value as "public" | "private",
+													}))
+												}
+												className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+											>
+												<option value="public">Public (listed in the store)</option>
+												<option value="private">Private sale (only via private links)</option>
+											</select>
 										</div>
 									</div>
 								</div>
