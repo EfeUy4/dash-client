@@ -35,7 +35,10 @@ export interface OrderQuote {
 
 class PaymentService {
 	// The server is the source of truth for totals and shipping; never compute the charge client-side
-	async getQuote(payload: { items: QuoteItemInput[] } | { privateLinkToken: string }): Promise<OrderQuote> {
+	async getQuote(payload:
+			| { items: QuoteItemInput[] }
+			| { privateLinkToken: string; selections?: Array<{ size?: string; color?: string }> },
+	): Promise<OrderQuote> {
 		const response = await api.post("/orders/quote", payload);
 		return response.data;
 	}

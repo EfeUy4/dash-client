@@ -3,11 +3,17 @@ import api from "@/utils/api";
 
 export type PrivateLinkStatus = "active" | "expired" | "revoked" | "exhausted";
 
+export type LinkItemSpecMode = "locked" | "choosable";
+
 export interface PrivateLinkItemInput {
 	product: string;
 	size?: string;
 	color?: string;
 	quantity: number;
+	// "choosable" lets the buyer pick from allowedSizes/allowedColors (empty = all product options)
+	specMode?: LinkItemSpecMode;
+	allowedSizes?: string[];
+	allowedColors?: string[];
 }
 
 export interface PrivateLink {
@@ -19,6 +25,9 @@ export interface PrivateLink {
 		size?: string;
 		color?: string;
 		quantity: number;
+		specMode?: LinkItemSpecMode;
+		allowedSizes?: string[];
+		allowedColors?: string[];
 	}>;
 	expiresAt: string;
 	maxUses?: number | null;
@@ -57,11 +66,19 @@ export interface ResolvedPrivateLink {
 			images: string[];
 			price: number;
 			priceNGN: number;
+			originalPrice?: number;
 			category: string;
+			subcategory?: string;
+			features?: string[];
+			sizes?: string[];
+			colors?: string[];
 		};
 		size?: string;
 		color?: string;
 		quantity: number;
+		specMode?: LinkItemSpecMode;
+		sizeOptions?: string[];
+		colorOptions?: string[];
 		lineTotalNGN?: number;
 		available: boolean;
 	}>;
