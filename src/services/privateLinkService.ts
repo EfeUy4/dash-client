@@ -27,6 +27,8 @@ export interface PrivateLink {
 	createdBy?: { firstName: string; lastName: string; role: string } | string;
 	revokedAt?: string | null;
 	createdAt: string;
+	// false for links created before re-copy existed (only a hash of their token is stored)
+	recopyable?: boolean;
 	// Only present in the create response; cannot be retrieved again
 	token?: string;
 	url?: string;
@@ -73,6 +75,11 @@ class PrivateLinkService {
 
 	async get(id: string): Promise<PrivateLink> {
 		const response = await api.get(`/private-links/${id}`);
+		return response.data;
+	}
+
+	async getUrl(id: string): Promise<{ url: string | null; legacy: boolean; unrecoverable?: boolean }> {
+		const response = await api.get(`/private-links/${id}/url`);
 		return response.data;
 	}
 
