@@ -55,6 +55,21 @@ const PrivateLinksPage = () => {
 		}
 	};
 
+	const LEGACY_TOOLTIP = "Created before re-copy was available";
+
+	const copyExistingLink = async (link: PrivateLink) => {
+		try {
+			const result = await privateLinkService.getUrl(link.id);
+			if (!result.url) {
+				showErrorToast(result.legacy ? LEGACY_TOOLTIP : "This link can't be re-shown; revoke it and create a new one");
+				return;
+			}
+			await copyUrl(result.url);
+		} catch (error: any) {
+			showErrorToast(error.message || "Failed to get link");
+		}
+	};
+
 	const handleRevoke = async (link: PrivateLink) => {
 		if (!window.confirm(`Revoke "${link.title}"? Anyone with the link will lose access immediately.`)) return;
 		try {
@@ -158,6 +173,14 @@ const PrivateLinksPage = () => {
 									</td>
 									<td className="px-6 py-4 text-sm text-gray-600">{creatorName(link)}</td>
 									<td className="px-6 py-4 text-right whitespace-nowrap">
+										<button
+											onClick={() => copyExistingLink(link)}
+											disabled={link.recopyable === false}
+											className="p-1 text-gray-500 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed"
+											title={link.recopyable === false ? LEGACY_TOOLTIP : "Copy link"}
+										>
+											<Copy className="w-4 h-4" />
+										</button>
 										<button onClick={() => openDetail(link)} className="p-1 text-gray-500 hover:text-gray-900" title="Details">
 											<Eye className="w-4 h-4" />
 										</button>
@@ -208,8 +231,7 @@ const PrivateLinksPage = () => {
 				{createdLink?.url && (
 					<div className="space-y-4">
 						<p className="text-sm text-gray-600">
-							Copy this link now and send it to the customer. For security it cannot be shown again; if it is
-							lost, revoke this link and create a new one.
+							Copy this link and send it to the customer. You can copy it again later from the Private Links list.
 						</p>
 						<div className="flex items-center gap-2 p-3 bg-gray-50 border border-gray-200 rounded-md">
 							<Link2 className="w-4 h-4 text-gray-500 shrink-0" />
@@ -240,6 +262,19 @@ const PrivateLinksPage = () => {
 							<div>Created: {formatDate(detail.createdAt)}</div>
 						</div>
 						{detail.note && <p className="text-gray-600">{detail.note}</p>}
+						<div>
+							<span title={detail.recopyable === false ? LEGACY_TOOLTIP : undefined}>
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={() => copyExistingLink(detail)}
+									disabled={detail.recopyable === false}
+								>
+									<Copy className="w-4 h-4 mr-1" /> Copy link
+								</Button>
+							</span>
+							{detail.recopyable === false && <p className="text-xs text-gray-500 mt-1">{LEGACY_TOOLTIP}</p>}
+						</div>
 						<div>
 							<h4 className="font-medium text-gray-900 mb-2">Orders</h4>
 							{detail.orders?.length ? (
