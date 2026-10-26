@@ -24,6 +24,7 @@ import { fetchProducts } from "@/redux/thunks/products";
 import { createOrder } from "@/redux/thunks/orders";
 import { useToastUtils } from "@/services/toast";
 import { Product } from "@/data/types";
+import { paymentService, OrderQuote } from "@/services/paymentService";
 
 interface CartItem {
 	id: string;
@@ -114,14 +115,33 @@ const SalesRepOrderPage = () => {
 	}, [products]);
 
 	// Calculate totals
-	const { subtotal, shipping, tax, total } = useMemo(() => {
-		const subtotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
-		const shipping = subtotal > 50000 ? 0 : 2500;
-		const tax = subtotal * 0.075; // 7.5% VAT
-		const total = subtotal + shipping + tax;
-		
-		return { subtotal, shipping, tax, total };
-	}, [cart]);
+	// Totals come from the server quote (same shipping rule the order will be recorded with; no VAT is applied server-side)
+	const [quote, setQuote] = useState<OrderQuote | null>(null);
+	const quoteKey = JSON.stringify(
+		cart.map((item) => ({ productId: item.product.id, quantity: item.quantity, size: item.size, color: item.color })),
+	);
+	useEffect(() => {
+		const quoteItems = JSON.parse(quoteKey);
+		if (quoteItems.length === 0) {
+			setQuote(null);
+			return;
+		}
+		let cancelled = false;
+		paymentService
+			.getQuote({ items: quoteItems })
+			.then((result) => !cancelled && setQuote(result))
+			.catch((error) => {
+				console.error("Failed to fetch order quote:", error);
+				if (!cancelled) setQuote(null);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [quoteKey]);
+
+	const subtotal = quote?.subtotal ?? cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+	const shipping = quote?.shipping ?? 0;
+	const total = quote?.total ?? subtotal + shipping;
 
 	const formatPrice = (price: number) => {
 		return new Intl.NumberFormat("en-NG", {
@@ -681,10 +701,6 @@ const SalesRepOrderPage = () => {
 									<div className="flex justify-between text-sm">
 										<span>Shipping:</span>
 										<span>{shipping === 0 ? "Free" : formatPrice(shipping)}</span>
-									</div>
-									<div className="flex justify-between text-sm">
-										<span>Tax (7.5%):</span>
-										<span>{formatPrice(tax)}</span>
 									</div>
 									<div className="border-t border-gray-200 pt-2">
 										<div className="flex justify-between font-semibold">

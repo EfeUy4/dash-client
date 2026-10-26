@@ -2,8 +2,10 @@
 import { Order } from "@/data/types";
 import api from "@/utils/api";
 
-interface CreateOrderData {
-	items: Array<{
+export interface CreateOrderData {
+	// Ignored by the server when privateLinkToken is set (the link's preset cart is used)
+	privateLinkToken?: string;
+	items?: Array<{
 		productId: string;
 		quantity: number;
 		size: string;

@@ -23,6 +23,7 @@ export interface Product {
 	isNewProduct: boolean;
 	isFeatured: boolean;
 	isActive: boolean;
+	visibility?: "public" | "private";
 	tags: string[];
 	sku: string;
 	weight?: number;

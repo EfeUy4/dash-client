@@ -1,7 +1,13 @@
 import { createSelector } from "@reduxjs/toolkit";
 import { RootState } from "../store";
 
-export const selectProducts = (state: RootState) => state.product.products;
+// Everything loaded (staff get private and inactive products from /products/admin/all)
+export const selectAllProducts = (state: RootState) => state.product.products;
+
+// Storefront view: never show private-sale or inactive products, even to logged-in staff
+export const selectProducts = createSelector([selectAllProducts], (products) =>
+	products.filter((p) => p.isActive !== false && p.visibility !== "private"),
+);
 // selectors/products.ts
 export const selectFeaturedProducts = createSelector([selectProducts], (products) =>
 	products.filter((p) => p.isFeatured),

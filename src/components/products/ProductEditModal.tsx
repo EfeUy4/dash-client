@@ -53,6 +53,7 @@ const ProductEditModal = ({ product, onClose, onSave }: ProductEditModalProps) =
 		isNewProduct: product.isNewProduct,
 		isFeatured: product.isFeatured,
 		isActive: product.isActive,
+		visibility: (product.visibility || "public") as "public" | "private",
 		tags: product.tags.length > 0 ? product.tags : [""],
 		sku: product.sku,
 		weight: product.weight || 0,
@@ -772,6 +773,27 @@ const ProductEditModal = ({ product, onClose, onSave }: ProductEditModalProps) =
 											<label htmlFor="isActive" className="ml-2 block text-sm text-gray-900">
 												Active Product
 											</label>
+										</div>
+
+										<div>
+											<label htmlFor="visibility" className="block text-sm font-medium text-gray-700 mb-1">
+												Visibility
+											</label>
+											<select
+												name="visibility"
+												id="visibility"
+												value={formData.visibility}
+												onChange={(e) =>
+													setFormData((prev) => ({
+														...prev,
+														visibility: e.target.value as "public" | "private",
+													}))
+												}
+												className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+											>
+												<option value="public">Public (listed in the store)</option>
+												<option value="private">Private sale (only via private links)</option>
+											</select>
 										</div>
 									</div>
 								</div>

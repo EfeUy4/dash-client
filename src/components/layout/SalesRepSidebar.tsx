@@ -12,6 +12,7 @@ import {
 	LogOut,
 	Home,
 	PackagePlus,
+	Link2,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import Logo from "../Logo";
@@ -25,6 +26,7 @@ const SalesRepSidebar = () => {
 		{ name: "Sales Dashboard", href: "/salesrep", icon: TrendingUp },
 		{ name: "Create Orders", href: "/salesrep/create-order", icon: PackagePlus },
 		{ name: "Orders", href: "/salesrep/orders", icon: ShoppingCart },
+		{ name: "Private Links", href: "/salesrep/private-links", icon: Link2 },
 		{ name: "Sales Reports", href: "/salesrep/reports", icon: BarChart3 },
 		{ name: "Settings", href: "/salesrep/settings", icon: Settings },
 	];

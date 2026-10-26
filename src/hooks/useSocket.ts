@@ -3,9 +3,11 @@ import { useAppDispatch } from "@/redux/hooks";
 import { addNewProduct, applyUpdatedProduct, deleteProductLocally } from "@/redux/slices/productsSlice";
 import { addNewOrder, updateOrder, updateOrderStatus } from "@/redux/slices/ordersSlice";
 import socket from "@/utils/socket";
+import { useAuth } from "@/contexts/AuthContext";
 
 export const useSocket = () => {
 	const dispatch = useAppDispatch();
+	const { user } = useAuth();
 
 	useEffect(() => {
 		// Connect immediately for public events
@@ -67,6 +69,14 @@ export const useSocket = () => {
 			socket.disconnect();
 		};
 	}, [dispatch]);
+
+	// Reconnect when the logged-in user changes so the handshake carries the current token
+	useEffect(() => {
+		if (socket.connected) {
+			socket.disconnect();
+			socket.connect();
+		}
+	}, [user?.id]);
 
 	return socket;
 };

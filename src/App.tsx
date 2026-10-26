@@ -18,6 +18,8 @@ import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import WishlistPage from "./pages/WishlistPage";
 import TrackOrderPage from "./pages/TrackOrderPage";
+import PrivateLinkPage from "./pages/PrivateLinkPage";
+import PrivateLinksPage from "./pages/staff/PrivateLinksPage";
 
 // Customer Layout & Pages
 import CustomerLayout from "./components/layout/CustomerLayout";
@@ -79,6 +81,8 @@ function App() {
 					<Route path="cart" element={<CartPage />} />
 					<Route path="checkout" element={<CheckoutPage />} />
 					<Route path="track-order" element={<TrackOrderPage />} />
+					{/* Unlisted private sale links (not linked from any navigation) */}
+					<Route path="p/:token" element={<PrivateLinkPage />} />
 					<Route path="store" element={<ProductsPage />} />
 					<Route path="shop" element={<ProductsPage />} />
 				</Route>
@@ -141,6 +145,7 @@ function App() {
 					<Route path="alerts" element={<StoreKeeperAlerts />} />
 					<Route path="reports" element={<StoreKeeperReports />} />
 					<Route path="settings" element={<StoreKeeperSettings />} />
+					<Route path="private-links" element={<PrivateLinksPage />} />
 				</Route>
 
 				{/* SalesRep Routes */}
@@ -157,6 +162,7 @@ function App() {
 					<Route path="create-order" element={<SalesRepOrderPage />} />
 					<Route path="reports" element={<SalesRepReports />} />
 					<Route path="settings" element={<SalesRepSettings />} />
+					<Route path="private-links" element={<PrivateLinksPage />} />
 				</Route>
 
 				{/* Admin Routes */}
@@ -176,6 +182,7 @@ function App() {
 					<Route path="reports" element={<AdminReports />} />
 					<Route path="orders" element={<AdminOrders />} />
 					<Route path="alerts" element={<AdminAlerts />} />
+					<Route path="private-links" element={<PrivateLinksPage />} />
 				</Route>
 
 				{/*    --    --   --   --  */}

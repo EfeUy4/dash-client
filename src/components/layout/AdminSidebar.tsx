@@ -14,6 +14,7 @@ import {
 	Home,
   LucideTruck,
   AlertTriangle,
+	Link2,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import Logo from "../Logo";
@@ -28,6 +29,7 @@ const AdminSidebar = () => {
 		{ name: "User Management", href: "/admin/users", icon: Users },
 		{ name: "Inventory Management", href: "/admin/inventory", icon: Boxes },
 		{ name: "Order Management", href: "/admin/orders", icon: LucideTruck },
+		{ name: "Private Links", href: "/admin/private-links", icon: Link2 },
 		{ name: "Low Stock Alerts", href: "/admin/alerts", icon: AlertTriangle },
 		{ name: "Reports", href: "/admin/reports", icon: FileText },
 		{ name: "System Settings", href: "/admin/system", icon: Settings },

@@ -16,7 +16,7 @@ import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import {
 	selectProductError,
 	selectProductLoading,
-	selectProducts,
+	selectAllProducts,
 	selectHasBeenFetched,
 } from "@/redux/selectors/productsSelectors";
 import {
@@ -115,7 +115,7 @@ const AdminReports = () => {
 	const dispatch = useAppDispatch();
 
 	// Product selectors
-	const products = useAppSelector(selectProducts);
+	const products = useAppSelector(selectAllProducts);
 	const productsLoading = useAppSelector(selectProductLoading);
 	const productsError = useAppSelector(selectProductError);
 	const productsHasBeenFetched = useAppSelector(selectHasBeenFetched);
