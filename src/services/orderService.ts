@@ -5,6 +5,8 @@ import api from "@/utils/api";
 export interface CreateOrderData {
 	// Ignored by the server when privateLinkToken is set (the link's preset cart is used)
 	privateLinkToken?: string;
+	// Buyer choices per link item (by index); only used for "choosable" items
+	selections?: Array<{ size?: string; color?: string }>;
 	items?: Array<{
 		productId: string;
 		quantity: number;

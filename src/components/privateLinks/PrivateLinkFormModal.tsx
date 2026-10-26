@@ -45,6 +45,9 @@ const PrivateLinkFormModal = ({ isOpen, onClose, link, onSaved }: PrivateLinkFor
 					size: item.size || "",
 					color: item.color || "",
 					quantity: item.quantity,
+					specMode: item.specMode || "locked",
+					allowedSizes: item.allowedSizes || [],
+					allowedColors: item.allowedColors || [],
 			  }))
 			: [{ product: "", size: "", color: "", quantity: 1 }],
 	);
@@ -60,6 +63,16 @@ const PrivateLinkFormModal = ({ isOpen, onClose, link, onSaved }: PrivateLinkFor
 
 	const updateItem = (index: number, changes: Partial<PrivateLinkItemInput>) => {
 		setItems((prev) => prev.map((item, i) => (i === index ? { ...item, ...changes } : item)));
+	};
+
+	const toggleOption = (index: number, key: "allowedSizes" | "allowedColors", value: string) => {
+		setItems((prev) =>
+			prev.map((item, i) => {
+				if (i !== index) return item;
+				const current = item[key] || [];
+				return { ...item, [key]: current.includes(value) ? current.filter((v) => v !== value) : [...current, value] };
+			}),
+		);
 	};
 
 	const handleSave = async () => {
@@ -80,6 +93,9 @@ const PrivateLinkFormModal = ({ isOpen, onClose, link, onSaved }: PrivateLinkFor
 				size: item.size || undefined,
 				color: item.color || undefined,
 				quantity: Number(item.quantity),
+				specMode: item.specMode || "locked",
+				allowedSizes: item.specMode === "choosable" ? item.allowedSizes || [] : [],
+				allowedColors: item.specMode === "choosable" ? item.allowedColors || [] : [],
 			})),
 			maxUses: maxUses ? Number(maxUses) : null,
 		};
@@ -126,7 +142,7 @@ const PrivateLinkFormModal = ({ isOpen, onClose, link, onSaved }: PrivateLinkFor
 						<Button
 							variant="outline"
 							size="sm"
-							onClick={() => setItems((prev) => [...prev, { product: "", size: "", color: "", quantity: 1 }])}
+							onClick={() => setItems((prev) => [...prev, { product: "", size: "", color: "", quantity: 1, specMode: "locked" }])}
 						>
 							<Plus className="w-4 h-4 mr-1" /> Add item
 						</Button>
@@ -135,10 +151,13 @@ const PrivateLinkFormModal = ({ isOpen, onClose, link, onSaved }: PrivateLinkFor
 						{items.map((item, index) => {
 							const product = activeProducts.find((p) => p.id === item.product);
 							return (
-								<div key={index} className="grid grid-cols-12 gap-2 items-center">
+								<div key={index} className="rounded-md border border-neutral-200 p-3 space-y-3">
+								<div className="grid grid-cols-12 gap-2 items-center">
 									<select
 										value={item.product}
-										onChange={(e) => updateItem(index, { product: e.target.value, size: "", color: "" })}
+										onChange={(e) =>
+											updateItem(index, { product: e.target.value, size: "", color: "", allowedSizes: [], allowedColors: [] })
+										}
 										className="col-span-12 sm:col-span-5 px-3 py-2 border border-neutral-300 rounded-md text-sm"
 									>
 										<option value="">Select product</option>
@@ -190,6 +209,54 @@ const PrivateLinkFormModal = ({ isOpen, onClose, link, onSaved }: PrivateLinkFor
 									>
 										<Trash2 className="w-4 h-4" />
 									</button>
+								</div>
+								{product && (product.sizes?.length || product.colors?.length) ? (
+									<div className="space-y-2">
+										<label className="flex items-center gap-2 text-sm text-neutral-700">
+											<input
+												type="checkbox"
+												checked={item.specMode === "choosable"}
+												onChange={(e) => updateItem(index, { specMode: e.target.checked ? "choosable" : "locked" })}
+											/>
+											Let buyer choose size/colour
+										</label>
+										{item.specMode === "choosable" && (
+											<div className="space-y-2 pl-6">
+												<p className="text-xs text-neutral-500">
+													Tick the options the buyer may pick (none ticked = all of the product's options). Size/colour above becomes the default.
+												</p>
+												{(["allowedSizes", "allowedColors"] as const).map((key) => {
+													const options = key === "allowedSizes" ? product.sizes : product.colors;
+													if (!options?.length) return null;
+													return (
+														<div key={key} className="flex flex-wrap items-center gap-2">
+															<span className="text-xs font-medium text-neutral-600 w-14">
+																{key === "allowedSizes" ? "Sizes" : "Colours"}
+															</span>
+															{options.map((option) => {
+																const selected = item[key]?.includes(option);
+																return (
+																	<button
+																		type="button"
+																		key={option}
+																		onClick={() => toggleOption(index, key, option)}
+																		className={`px-2 py-0.5 rounded-full border text-xs ${
+																			selected
+																				? "bg-neutral-900 text-white border-neutral-900"
+																				: "border-neutral-300 text-neutral-700 hover:border-neutral-500"
+																		}`}
+																	>
+																		{option}
+																	</button>
+																);
+															})}
+														</div>
+													);
+												})}
+											</div>
+										)}
+									</div>
+								) : null}
 								</div>
 							);
 						})}

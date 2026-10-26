@@ -19,6 +19,29 @@ const formatDate = (iso: string) =>
 const creatorName = (link: PrivateLink) =>
 	typeof link.createdBy === "object" && link.createdBy ? `${link.createdBy.firstName} ${link.createdBy.lastName}` : "—";
 
+const itemLabel = (item: PrivateLink["items"][number]) =>
+	[
+		`${typeof item.product === "object" ? item.product.name : "Product"} ×${item.quantity}`,
+		item.specMode === "choosable" ? "buyer chooses" : null,
+		item.size,
+		item.color,
+	]
+		.filter(Boolean)
+		.join(" · ");
+
+const usesLabel = (link: PrivateLink) => `${link.uses}${link.maxUses ? ` / ${link.maxUses}` : ""}`;
+
+// Hidden columns (lg+) are still visible in the card/detail views
+const COLUMNS = [
+	{ label: "Title", className: "w-[22%]" },
+	{ label: "Items", className: "w-[34%]" },
+	{ label: "Status", className: "w-[96px]" },
+	{ label: "Expires", className: "w-[17%]" },
+	{ label: "Uses", className: "hidden lg:table-cell w-[64px]" },
+	{ label: "Created by", className: "hidden xl:table-cell w-[14%]" },
+	{ label: "", className: "w-[120px]" },
+];
+
 // Shared by the admin, salesrep and storekeeper layouts
 const PrivateLinksPage = () => {
 	const { showSuccessToast, showErrorToast } = useToastUtils();
@@ -89,16 +112,56 @@ const PrivateLinksPage = () => {
 		}
 	};
 
+	const renderActions = (link: PrivateLink) => (
+		<>
+			<button
+				onClick={() => copyExistingLink(link)}
+				disabled={link.recopyable === false}
+				className="p-1 text-gray-500 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed"
+				title={link.recopyable === false ? LEGACY_TOOLTIP : "Copy link"}
+				aria-label="Copy link"
+			>
+				<Copy className="w-4 h-4" />
+			</button>
+			<button onClick={() => openDetail(link)} className="p-1 text-gray-500 hover:text-gray-900" title="Details" aria-label="Details">
+				<Eye className="w-4 h-4" />
+			</button>
+			{link.status !== "revoked" && (
+				<>
+					<button
+						onClick={() => {
+							setEditing(link);
+							setFormOpen(true);
+						}}
+						className="p-1 text-gray-500 hover:text-gray-900"
+						title="Edit"
+						aria-label="Edit"
+					>
+						<Pencil className="w-4 h-4" />
+					</button>
+					<button
+						onClick={() => handleRevoke(link)}
+						className="p-1 text-gray-500 hover:text-red-600"
+						title="Revoke"
+						aria-label="Revoke"
+					>
+						<Ban className="w-4 h-4" />
+					</button>
+				</>
+			)}
+		</>
+	);
+
 	return (
-		<div className="space-y-6">
+		<div className="space-y-6 min-w-0">
 			<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
 				<div>
 					<h1 className="text-2xl font-bold text-gray-900">Private Sale Links</h1>
 					<p className="text-sm text-gray-600">
-						Unlisted, expiring links for custom or by-request items. The full link is only shown once.
+						Unlisted, expiring links for custom or by-request items. Copy a link again any time from this list.
 					</p>
 				</div>
-				<div className="flex gap-3">
+				<div className="flex flex-wrap gap-3">
 					<select
 						value={statusFilter}
 						onChange={(e) => setStatusFilter(e.target.value as PrivateLinkStatus | "")}
@@ -121,16 +184,55 @@ const PrivateLinksPage = () => {
 				</div>
 			</div>
 
-			<div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
-				<table className="w-full">
+			{/* Cards below md, table from md up; long text truncates with the full value in a tooltip */}
+			<div className="md:hidden space-y-3">
+				{loading ? (
+					<div className="bg-white rounded-lg border border-gray-200 p-6 text-center text-sm text-gray-500">Loading…</div>
+				) : links.length === 0 ? (
+					<div className="bg-white rounded-lg border border-gray-200 p-6 text-center text-sm text-gray-500">
+						No private links yet
+					</div>
+				) : (
+					links.map((link) => (
+						<div key={link.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 min-w-0">
+							<div className="flex items-start justify-between gap-3">
+								<p className="text-sm font-medium text-gray-900 truncate min-w-0" title={link.title}>
+									{link.title}
+								</p>
+								<span
+									className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[link.status]}`}
+								>
+									{link.status}
+								</span>
+							</div>
+							<div className="mt-2 space-y-0.5 text-sm text-gray-600 min-w-0">
+								{link.items.map((item, i) => (
+									<p key={i} className="truncate" title={itemLabel(item)}>
+										{itemLabel(item)}
+									</p>
+								))}
+							</div>
+							<div className="mt-3 flex items-center justify-between gap-3 text-xs text-gray-500">
+								<span className="truncate min-w-0" title={creatorName(link)}>
+									{formatDate(link.expiresAt)} · {usesLabel(link)} uses · {creatorName(link)}
+								</span>
+								<div className="shrink-0">{renderActions(link)}</div>
+							</div>
+						</div>
+					))
+				)}
+			</div>
+
+			<div className="hidden md:block bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+				<table className="w-full table-fixed">
 					<thead className="bg-gray-50">
 						<tr>
-							{["Title", "Items", "Status", "Expires", "Uses", "Created by", ""].map((heading) => (
+							{COLUMNS.map((column) => (
 								<th
-									key={heading}
-									className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+									key={column.label}
+									className={`px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${column.className}`}
 								>
-									{heading}
+									{column.label}
 								</th>
 							))}
 						</tr>
@@ -138,74 +240,42 @@ const PrivateLinksPage = () => {
 					<tbody className="divide-y divide-gray-200">
 						{loading ? (
 							<tr>
-								<td colSpan={7} className="px-6 py-8 text-center text-sm text-gray-500">
+								<td colSpan={COLUMNS.length} className="px-4 py-8 text-center text-sm text-gray-500">
 									Loading…
 								</td>
 							</tr>
 						) : links.length === 0 ? (
 							<tr>
-								<td colSpan={7} className="px-6 py-8 text-center text-sm text-gray-500">
+								<td colSpan={COLUMNS.length} className="px-4 py-8 text-center text-sm text-gray-500">
 									No private links yet
 								</td>
 							</tr>
 						) : (
 							links.map((link) => (
 								<tr key={link.id} className="hover:bg-gray-50">
-									<td className="px-6 py-4 text-sm font-medium text-gray-900">{link.title}</td>
-									<td className="px-6 py-4 text-sm text-gray-600">
+									<td className="px-4 py-4 text-sm font-medium text-gray-900 truncate" title={link.title}>
+										{link.title}
+									</td>
+									<td className="px-4 py-4 text-sm text-gray-600">
 										{link.items.map((item, i) => (
-											<div key={i}>
-												{typeof item.product === "object" ? item.product.name : "Product"} ×{item.quantity}
-												{item.size ? ` · ${item.size}` : ""}
-												{item.color ? ` · ${item.color}` : ""}
+											<div key={i} className="truncate" title={itemLabel(item)}>
+												{itemLabel(item)}
 											</div>
 										))}
 									</td>
-									<td className="px-6 py-4">
+									<td className="px-4 py-4">
 										<span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[link.status]}`}>
 											{link.status}
 										</span>
 									</td>
-									<td className="px-6 py-4 text-sm text-gray-600">{formatDate(link.expiresAt)}</td>
-									<td className="px-6 py-4 text-sm text-gray-600">
-										{link.uses}
-										{link.maxUses ? ` / ${link.maxUses}` : ""}
+									<td className="px-4 py-4 text-sm text-gray-600">
+										{formatDate(link.expiresAt)}
 									</td>
-									<td className="px-6 py-4 text-sm text-gray-600">{creatorName(link)}</td>
-									<td className="px-6 py-4 text-right whitespace-nowrap">
-										<button
-											onClick={() => copyExistingLink(link)}
-											disabled={link.recopyable === false}
-											className="p-1 text-gray-500 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed"
-											title={link.recopyable === false ? LEGACY_TOOLTIP : "Copy link"}
-										>
-											<Copy className="w-4 h-4" />
-										</button>
-										<button onClick={() => openDetail(link)} className="p-1 text-gray-500 hover:text-gray-900" title="Details">
-											<Eye className="w-4 h-4" />
-										</button>
-										{link.status !== "revoked" && (
-											<>
-												<button
-													onClick={() => {
-														setEditing(link);
-														setFormOpen(true);
-													}}
-													className="p-1 text-gray-500 hover:text-gray-900"
-													title="Edit"
-												>
-													<Pencil className="w-4 h-4" />
-												</button>
-												<button
-													onClick={() => handleRevoke(link)}
-													className="p-1 text-gray-500 hover:text-red-600"
-													title="Revoke"
-												>
-													<Ban className="w-4 h-4" />
-												</button>
-											</>
-										)}
+									<td className="hidden lg:table-cell px-4 py-4 text-sm text-gray-600 whitespace-nowrap">{usesLabel(link)}</td>
+									<td className="hidden xl:table-cell px-4 py-4 text-sm text-gray-600 truncate" title={creatorName(link)}>
+										{creatorName(link)}
 									</td>
+									<td className="px-4 py-4 text-right whitespace-nowrap">{renderActions(link)}</td>
 								</tr>
 							))
 						)}
