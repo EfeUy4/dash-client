@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
@@ -60,6 +60,54 @@ const PrivateLinkFormModal = ({ isOpen, onClose, link, onSaved }: PrivateLinkFor
 		() => [...products].filter((p) => p.isActive).sort((a, b) => a.name.localeCompare(b.name)),
 		[products],
 	);
+
+	// Create form: every private, active, in-stock product is included by default (staff can remove/adjust)
+	const privateProducts = useMemo(
+		() => activeProducts.filter((p) => p.visibility === "private"),
+		[activeProducts],
+	);
+	const defaultPrivateItems = useMemo<PrivateLinkItemInput[]>(
+		() =>
+			privateProducts
+				.filter((p) => (p.stockCount ?? 0) > 0)
+				.map((p) => ({
+					product: p.id,
+					size: p.sizes?.[0] || "",
+					color: p.colors?.[0] || "",
+					quantity: 1,
+					specMode: "locked",
+					allowedSizes: [],
+					allowedColors: [],
+				})),
+		[privateProducts],
+	);
+	const outOfStockPrivate = privateProducts.length - defaultPrivateItems.length;
+	const [prefilled, setPrefilled] = useState(isEdit);
+
+	useEffect(() => {
+		if (prefilled || defaultPrivateItems.length === 0) return;
+		setItems((prev) => {
+			const untouched = prev.length === 1 && !prev[0].product;
+			return untouched ? defaultPrivateItems : prev;
+		});
+		setPrefilled(true);
+	}, [prefilled, defaultPrivateItems]);
+
+	const privateIds = useMemo(() => new Set(privateProducts.map((p) => p.id)), [privateProducts]);
+	const includedPrivateCount = items.filter((item) => privateIds.has(item.product)).length;
+
+	const removeAllPrivate = () =>
+		setItems((prev) => {
+			const rest = prev.filter((item) => !privateIds.has(item.product));
+			return rest.length ? rest : [{ product: "", size: "", color: "", quantity: 1, specMode: "locked" }];
+		});
+
+	const readdAllPrivate = () =>
+		setItems((prev) => {
+			const present = new Set(prev.map((item) => item.product));
+			const kept = prev.filter((item) => item.product);
+			return [...kept, ...defaultPrivateItems.filter((item) => !present.has(item.product))];
+		});
 
 	const updateItem = (index: number, changes: Partial<PrivateLinkItemInput>) => {
 		setItems((prev) => prev.map((item, i) => (i === index ? { ...item, ...changes } : item)));
@@ -147,11 +195,36 @@ const PrivateLinkFormModal = ({ isOpen, onClose, link, onSaved }: PrivateLinkFor
 							<Plus className="w-4 h-4 mr-1" /> Add item
 						</Button>
 					</div>
-					<div className="space-y-3">
+					{!isEdit && (
+						<div className="flex flex-wrap items-center justify-between gap-2 mb-2 px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-md text-xs text-neutral-600">
+							<span>
+								{privateProducts.length === 0
+									? "No private products yet. Mark a product as private to have it included by default."
+									: `${includedPrivateCount} of ${defaultPrivateItems.length} private products included${
+											outOfStockPrivate > 0 ? ` (${outOfStockPrivate} out of stock skipped)` : ""
+									  }`}
+							</span>
+							{defaultPrivateItems.length > 0 && (
+								<span className="flex gap-3">
+									{includedPrivateCount > 0 && (
+										<button type="button" onClick={removeAllPrivate} className="font-medium text-neutral-700 hover:text-red-600">
+											Remove all
+										</button>
+									)}
+									{includedPrivateCount < defaultPrivateItems.length && (
+										<button type="button" onClick={readdAllPrivate} className="font-medium text-neutral-700 hover:text-neutral-900">
+											Re-add all private products
+										</button>
+									)}
+								</span>
+							)}
+						</div>
+					)}
+					<div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
 						{items.map((item, index) => {
 							const product = activeProducts.find((p) => p.id === item.product);
 							return (
-								<div key={index} className="rounded-md border border-neutral-200 p-3 space-y-3">
+								<div key={index} className="rounded-md border border-neutral-200 p-2 sm:p-3 space-y-2">
 								<div className="grid grid-cols-12 gap-2 items-center">
 									<select
 										value={item.product}
