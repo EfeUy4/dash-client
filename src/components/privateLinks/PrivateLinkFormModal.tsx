@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, Search, X } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -12,6 +12,7 @@ import {
 	PrivateLinkItemInput,
 	PrivateLinkPayload,
 } from "@/services/privateLinkService";
+import type { Product } from "@/data/types";
 
 interface PrivateLinkFormModalProps {
 	isOpen: boolean;
@@ -20,16 +21,55 @@ interface PrivateLinkFormModalProps {
 	onSaved: (link: PrivateLink) => void;
 }
 
-const DEFAULT_EXPIRY_HOURS = 48;
+type Unit = "seconds" | "minutes" | "hours" | "days";
+const UNIT_SECONDS: Record<Unit, number> = { seconds: 1, minutes: 60, hours: 3600, days: 86400 };
+const MAX_TTL_SECONDS = 90 * 86400; // server limit
 
 const productIdOf = (product: PrivateLink["items"][number]["product"]) =>
 	typeof product === "string" ? product : product.id || product._id || "";
 
-const toLocalInput = (iso: string) => {
-	const date = new Date(iso);
-	const offset = date.getTimezoneOffset() * 60000;
-	return new Date(date.getTime() - offset).toISOString().slice(0, 16);
-};
+const formatDate = (date: Date) => date.toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "medium" });
+
+const defaultItemFor = (p: Product): PrivateLinkItemInput => ({
+	product: p.id,
+	size: p.sizes?.[0] || "",
+	color: p.colors?.[0] || "",
+	quantity: 1,
+	specMode: "locked",
+	allowedSizes: [],
+	allowedColors: [],
+});
+
+const digitsOnly = (value: string) => value.replace(/\D/g, "");
+
+// Text input that only takes digits and can be fully cleared while typing (no stuck "0")
+const DigitsInput = ({
+	value,
+	onChange,
+	onBlur,
+	placeholder,
+	className = "",
+	ariaLabel,
+}: {
+	value: string;
+	onChange: (value: string) => void;
+	onBlur?: () => void;
+	placeholder?: string;
+	className?: string;
+	ariaLabel?: string;
+}) => (
+	<input
+		type="text"
+		inputMode="numeric"
+		pattern="[0-9]*"
+		value={value}
+		placeholder={placeholder}
+		aria-label={ariaLabel}
+		onChange={(e) => onChange(digitsOnly(e.target.value))}
+		onBlur={onBlur}
+		className={`px-3 py-2 border border-neutral-300 rounded-md text-sm min-w-0 focus:outline-none focus:ring-2 focus:ring-neutral-400 ${className}`}
+	/>
+);
 
 const PrivateLinkFormModal = ({ isOpen, onClose, link, onSaved }: PrivateLinkFormModalProps) => {
 	const products = useAppSelector(selectAllProducts);
@@ -38,100 +78,95 @@ const PrivateLinkFormModal = ({ isOpen, onClose, link, onSaved }: PrivateLinkFor
 
 	const [title, setTitle] = useState(link?.title || "");
 	const [note, setNote] = useState(link?.note || "");
-	const [items, setItems] = useState<PrivateLinkItemInput[]>(
+	// Quantities are kept as strings so the field can be cleared while editing
+	const [items, setItems] = useState<Array<PrivateLinkItemInput & { qty: string }>>(
 		link
 			? link.items.map((item) => ({
 					product: productIdOf(item.product),
 					size: item.size || "",
 					color: item.color || "",
 					quantity: item.quantity,
+					qty: String(item.quantity),
 					specMode: item.specMode || "locked",
 					allowedSizes: item.allowedSizes || [],
 					allowedColors: item.allowedColors || [],
 			  }))
-			: [{ product: "", size: "", color: "", quantity: 1 }],
+			: [],
 	);
-	const [expiresInHours, setExpiresInHours] = useState<number>(DEFAULT_EXPIRY_HOURS);
-	const [expiresAt, setExpiresAt] = useState(link ? toLocalInput(link.expiresAt) : "");
+	const [editingId, setEditingId] = useState<string | null>(null);
+	const [pickerOpen, setPickerOpen] = useState(false);
+	const [search, setSearch] = useState("");
+	const [expiryAmount, setExpiryAmount] = useState(isEdit ? "" : "48");
+	const [expiryUnit, setExpiryUnit] = useState<Unit>("hours");
 	const [maxUses, setMaxUses] = useState<string>(link?.maxUses ? String(link.maxUses) : "");
 	const [saving, setSaving] = useState(false);
+	const [now, setNow] = useState(Date.now());
+	const prefilled = useRef(isEdit);
+
+	useEffect(() => {
+		const timer = setInterval(() => setNow(Date.now()), 1000);
+		return () => clearInterval(timer);
+	}, []);
 
 	const activeProducts = useMemo(
 		() => [...products].filter((p) => p.isActive).sort((a, b) => a.name.localeCompare(b.name)),
 		[products],
 	);
+	const productById = useMemo(() => new Map(activeProducts.map((p) => [p.id, p])), [activeProducts]);
+	const privateProducts = useMemo(() => activeProducts.filter((p) => p.visibility === "private"), [activeProducts]);
+	// Out-of-stock private products can't be bought, so they are not offered
+	const pickablePrivate = useMemo(() => privateProducts.filter((p) => (p.stockCount ?? 0) > 0), [privateProducts]);
+	const skippedCount = privateProducts.length - pickablePrivate.length;
+	const otherProducts = useMemo(() => activeProducts.filter((p) => p.visibility !== "private"), [activeProducts]);
 
-	// Create form: every private, active, in-stock product is included by default (staff can remove/adjust)
-	const privateProducts = useMemo(
-		() => activeProducts.filter((p) => p.visibility === "private"),
-		[activeProducts],
-	);
-	const defaultPrivateItems = useMemo<PrivateLinkItemInput[]>(
-		() =>
-			privateProducts
-				.filter((p) => (p.stockCount ?? 0) > 0)
-				.map((p) => ({
-					product: p.id,
-					size: p.sizes?.[0] || "",
-					color: p.colors?.[0] || "",
-					quantity: 1,
-					specMode: "locked",
-					allowedSizes: [],
-					allowedColors: [],
-				})),
-		[privateProducts],
-	);
-	const outOfStockPrivate = privateProducts.length - defaultPrivateItems.length;
-	const [prefilled, setPrefilled] = useState(isEdit);
-
+	// Create form: all private products checked by default (once products have loaded)
 	useEffect(() => {
-		if (prefilled || defaultPrivateItems.length === 0) return;
-		setItems((prev) => {
-			const untouched = prev.length === 1 && !prev[0].product;
-			return untouched ? defaultPrivateItems : prev;
-		});
-		setPrefilled(true);
-	}, [prefilled, defaultPrivateItems]);
+		if (prefilled.current || pickablePrivate.length === 0) return;
+		prefilled.current = true;
+		setItems((prev) => (prev.length ? prev : pickablePrivate.map((p) => ({ ...defaultItemFor(p), qty: "1" }))));
+	}, [pickablePrivate]);
 
-	const privateIds = useMemo(() => new Set(privateProducts.map((p) => p.id)), [privateProducts]);
-	const includedPrivateCount = items.filter((item) => privateIds.has(item.product)).length;
+	const selectedIds = useMemo(() => new Set(items.map((item) => item.product)), [items]);
+	const selectedPrivateCount = pickablePrivate.filter((p) => selectedIds.has(p.id)).length;
+	const filteredPrivate = pickablePrivate.filter((p) =>
+		`${p.name} ${p.sku}`.toLowerCase().includes(search.trim().toLowerCase()),
+	);
 
-	const removeAllPrivate = () =>
-		setItems((prev) => {
-			const rest = prev.filter((item) => !privateIds.has(item.product));
-			return rest.length ? rest : [{ product: "", size: "", color: "", quantity: 1, specMode: "locked" }];
-		});
-
-	const readdAllPrivate = () =>
-		setItems((prev) => {
-			const present = new Set(prev.map((item) => item.product));
-			const kept = prev.filter((item) => item.product);
-			return [...kept, ...defaultPrivateItems.filter((item) => !present.has(item.product))];
-		});
-
-	const updateItem = (index: number, changes: Partial<PrivateLinkItemInput>) => {
-		setItems((prev) => prev.map((item, i) => (i === index ? { ...item, ...changes } : item)));
+	const addProduct = (p: Product) =>
+		setItems((prev) => (prev.some((i) => i.product === p.id) ? prev : [...prev, { ...defaultItemFor(p), qty: "1" }]));
+	const removeProduct = (id: string) => {
+		setItems((prev) => prev.filter((item) => item.product !== id));
+		if (editingId === id) setEditingId(null);
+	};
+	const toggleProduct = (p: Product) => (selectedIds.has(p.id) ? removeProduct(p.id) : addProduct(p));
+	const selectAllPrivate = (list: Product[]) => list.forEach(addProduct);
+	const clearPrivate = (list: Product[]) => {
+		const ids = new Set(list.map((p) => p.id));
+		setItems((prev) => prev.filter((item) => !ids.has(item.product)));
+		if (editingId && ids.has(editingId)) setEditingId(null);
 	};
 
-	const toggleOption = (index: number, key: "allowedSizes" | "allowedColors", value: string) => {
+	const updateItem = (id: string, changes: Partial<PrivateLinkItemInput & { qty: string }>) =>
+		setItems((prev) => prev.map((item) => (item.product === id ? { ...item, ...changes } : item)));
+
+	const toggleOption = (id: string, key: "allowedSizes" | "allowedColors", value: string) =>
 		setItems((prev) =>
-			prev.map((item, i) => {
-				if (i !== index) return item;
+			prev.map((item) => {
+				if (item.product !== id) return item;
 				const current = item[key] || [];
 				return { ...item, [key]: current.includes(value) ? current.filter((v) => v !== value) : [...current, value] };
 			}),
 		);
-	};
+
+	const expirySeconds = expiryAmount ? Number(expiryAmount) * UNIT_SECONDS[expiryUnit] : 0;
+	const computedExpiry = expirySeconds > 0 ? new Date(now + expirySeconds * 1000) : null;
+	const expiryTooLong = expirySeconds > MAX_TTL_SECONDS;
 
 	const handleSave = async () => {
-		if (!title.trim()) {
-			showErrorToast("Please enter a title");
-			return;
-		}
-		if (items.some((item) => !item.product || item.quantity < 1)) {
-			showErrorToast("Each item needs a product and a quantity of at least 1");
-			return;
-		}
+		if (!title.trim()) return showErrorToast("Please enter a title");
+		if (items.length === 0) return showErrorToast("Select at least one product");
+		if (!isEdit && expirySeconds <= 0) return showErrorToast("Set how long the link should last");
+		if (expiryTooLong) return showErrorToast("Links can last at most 90 days");
 
 		const payload: PrivateLinkPayload = {
 			title: title.trim(),
@@ -140,26 +175,19 @@ const PrivateLinkFormModal = ({ isOpen, onClose, link, onSaved }: PrivateLinkFor
 				product: item.product,
 				size: item.size || undefined,
 				color: item.color || undefined,
-				quantity: Number(item.quantity),
+				quantity: Math.max(1, Number(item.qty) || 1),
 				specMode: item.specMode || "locked",
 				allowedSizes: item.specMode === "choosable" ? item.allowedSizes || [] : [],
 				allowedColors: item.specMode === "choosable" ? item.allowedColors || [] : [],
 			})),
-			maxUses: maxUses ? Number(maxUses) : null,
+			maxUses: maxUses && Number(maxUses) > 0 ? Number(maxUses) : null,
 		};
-		if (isEdit) {
-			if (expiresAt && new Date(expiresAt).toISOString() !== new Date(link!.expiresAt).toISOString()) {
-				payload.expiresAt = new Date(expiresAt).toISOString();
-			}
-		} else {
-			payload.expiresInHours = Number(expiresInHours) || DEFAULT_EXPIRY_HOURS;
-		}
+		// Server accepts fractional hours, so any number of seconds works (edit: empty = unchanged)
+		if (expirySeconds > 0) payload.expiresInHours = expirySeconds / 3600;
 
 		setSaving(true);
 		try {
-			const saved = isEdit
-				? await privateLinkService.update(link!.id, payload)
-				: await privateLinkService.create(payload);
+			const saved = isEdit ? await privateLinkService.update(link!.id, payload) : await privateLinkService.create(payload);
 			showSuccessToast(isEdit ? "Private link updated" : "Private link created");
 			onSaved(saved);
 		} catch (error: any) {
@@ -169,9 +197,23 @@ const PrivateLinkFormModal = ({ isOpen, onClose, link, onSaved }: PrivateLinkFor
 		}
 	};
 
+	const editingItem = items.find((item) => item.product === editingId);
+	const editingProduct = editingId ? productById.get(editingId) : undefined;
+
+	const footer = (
+		<div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3">
+			<Button variant="secondary" onClick={onClose} className="w-full sm:w-auto">
+				Cancel
+			</Button>
+			<Button onClick={handleSave} isLoading={saving} className="w-full sm:w-auto">
+				{isEdit ? "Save changes" : "Create link"}
+			</Button>
+		</div>
+	);
+
 	return (
-		<Modal isOpen={isOpen} onClose={onClose} title={isEdit ? "Edit private link" : "New private sale link"} size="xl">
-			<div className="space-y-5">
+		<Modal isOpen={isOpen} onClose={onClose} title={isEdit ? "Edit private link" : "New private sale link"} size="xl" footer={footer}>
+			<div className="space-y-5 min-w-0">
 				<Input label="Title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Custom gown for Mrs. A" />
 
 				<div>
@@ -184,193 +226,276 @@ const PrivateLinkFormModal = ({ isOpen, onClose, link, onSaved }: PrivateLinkFor
 					/>
 				</div>
 
-				<div>
-					<div className="flex items-center justify-between mb-2">
-						<label className="block text-sm font-medium text-neutral-700">Items (preset for the customer)</label>
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={() => setItems((prev) => [...prev, { product: "", size: "", color: "", quantity: 1, specMode: "locked" }])}
-						>
-							<Plus className="w-4 h-4 mr-1" /> Add item
-						</Button>
-					</div>
-					{!isEdit && (
-						<div className="flex flex-wrap items-center justify-between gap-2 mb-2 px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-md text-xs text-neutral-600">
-							<span>
-								{privateProducts.length === 0
-									? "No private products yet. Mark a product as private to have it included by default."
-									: `${includedPrivateCount} of ${defaultPrivateItems.length} private products included${
-											outOfStockPrivate > 0 ? ` (${outOfStockPrivate} out of stock skipped)` : ""
-									  }`}
-							</span>
-							{defaultPrivateItems.length > 0 && (
-								<span className="flex gap-3">
-									{includedPrivateCount > 0 && (
-										<button type="button" onClick={removeAllPrivate} className="font-medium text-neutral-700 hover:text-red-600">
-											Remove all
+				{/* Products: dropdown checklist of private products + compact selected chips */}
+				<div className="min-w-0">
+					<label className="block text-sm font-medium text-neutral-700 mb-2">Products</label>
+					<button
+						type="button"
+						onClick={() => setPickerOpen((open) => !open)}
+						className="w-full flex items-center justify-between gap-2 px-3 py-2 border border-neutral-300 rounded-md text-sm text-left bg-white"
+						aria-expanded={pickerOpen}
+					>
+						<span className="truncate">
+							{pickablePrivate.length === 0
+								? "No private products in stock"
+								: `${selectedPrivateCount} of ${pickablePrivate.length} private products selected`}
+						</span>
+						<ChevronDown className={`w-4 h-4 shrink-0 transition-transform ${pickerOpen ? "rotate-180" : ""}`} />
+					</button>
+					{skippedCount > 0 && (
+						<p className="text-xs text-neutral-500 mt-1">
+							{skippedCount} out-of-stock private product{skippedCount === 1 ? "" : "s"} not listed
+						</p>
+					)}
+					{privateProducts.length === 0 && (
+						<p className="text-xs text-neutral-500 mt-1">Mark products as private to list them here.</p>
+					)}
+
+					{pickerOpen && pickablePrivate.length > 0 && (
+						<div className="mt-2 border border-neutral-200 rounded-md bg-white shadow-sm">
+							<div className="p-2 border-b border-neutral-200 space-y-2">
+								<div className="relative">
+									<Search className="w-4 h-4 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+									<input
+										value={search}
+										onChange={(e) => setSearch(e.target.value)}
+										placeholder="Search private products"
+										className="w-full pl-8 pr-3 py-1.5 border border-neutral-300 rounded-md text-sm"
+									/>
+								</div>
+								<div className="flex items-center justify-between text-xs">
+									<span className="text-neutral-500">{filteredPrivate.length} shown</span>
+									<span className="flex gap-3">
+										<button type="button" onClick={() => selectAllPrivate(filteredPrivate)} className="font-medium text-neutral-700 hover:text-neutral-900">
+											Select all
 										</button>
-									)}
-									{includedPrivateCount < defaultPrivateItems.length && (
-										<button type="button" onClick={readdAllPrivate} className="font-medium text-neutral-700 hover:text-neutral-900">
-											Re-add all private products
+										<button type="button" onClick={() => clearPrivate(filteredPrivate)} className="font-medium text-neutral-700 hover:text-red-600">
+											Clear
 										</button>
-									)}
-								</span>
-							)}
+									</span>
+								</div>
+							</div>
+							<ul className="max-h-56 overflow-y-auto py-1">
+								{filteredPrivate.map((p) => (
+									<li key={p.id}>
+										<label className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-neutral-50 cursor-pointer min-w-0">
+											<input type="checkbox" checked={selectedIds.has(p.id)} onChange={() => toggleProduct(p)} className="shrink-0" />
+											<span className="truncate" title={p.name}>
+												{p.name}
+											</span>
+											<span className="ml-auto text-xs text-neutral-400 shrink-0">{p.stockCount} in stock</span>
+										</label>
+									</li>
+								))}
+								{filteredPrivate.length === 0 && <li className="px-3 py-2 text-sm text-neutral-500">No matches</li>}
+							</ul>
 						</div>
 					)}
-					<div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
-						{items.map((item, index) => {
-							const product = activeProducts.find((p) => p.id === item.product);
-							return (
-								<div key={index} className="rounded-md border border-neutral-200 p-2 sm:p-3 space-y-2">
-								<div className="grid grid-cols-12 gap-2 items-center">
-									<select
-										value={item.product}
-										onChange={(e) =>
-											updateItem(index, { product: e.target.value, size: "", color: "", allowedSizes: [], allowedColors: [] })
-										}
-										className="col-span-12 sm:col-span-5 px-3 py-2 border border-neutral-300 rounded-md text-sm"
+
+					{otherProducts.length > 0 && (
+						<select
+							value=""
+							onChange={(e) => {
+								const p = productById.get(e.target.value);
+								if (p) addProduct(p);
+							}}
+							className="mt-2 w-full px-3 py-2 border border-neutral-300 rounded-md text-sm text-neutral-600"
+						>
+							<option value="">+ Add a public product…</option>
+							{otherProducts
+								.filter((p) => !selectedIds.has(p.id))
+								.map((p) => (
+									<option key={p.id} value={p.id}>
+										{p.name} ({p.sku})
+									</option>
+								))}
+						</select>
+					)}
+
+					{/* Selected items: fixed-height area, tap a chip to edit its specs */}
+					<div className="mt-3">
+						<p className="text-xs text-neutral-500 mb-1.5">
+							{items.length} item{items.length === 1 ? "" : "s"} in this link · tap one to set size, colour, quantity or buyer choice
+						</p>
+						<div className="max-h-32 overflow-y-auto flex flex-wrap gap-1.5">
+							{items.map((item) => {
+								const p = productById.get(item.product);
+								const name = p?.name || "Unavailable product";
+								const spec = [
+									`×${item.qty || 1}`,
+									item.specMode === "choosable" ? "buyer chooses" : [item.size, item.color].filter(Boolean).join(" · "),
+								]
+									.filter(Boolean)
+									.join(" · ");
+								const active = editingId === item.product;
+								return (
+									<span
+										key={item.product}
+										className={`inline-flex items-center max-w-full rounded-full border text-xs ${
+											active ? "bg-neutral-900 text-white border-neutral-900" : "bg-neutral-50 border-neutral-300 text-neutral-800"
+										}`}
 									>
-										<option value="">Select product</option>
-										{activeProducts.map((p) => (
-											<option key={p.id} value={p.id}>
-												{p.name} ({p.sku}){p.visibility === "private" ? " · private" : ""}
-											</option>
-										))}
-									</select>
-									<select
-										value={item.size || ""}
-										onChange={(e) => updateItem(index, { size: e.target.value })}
-										disabled={!product?.sizes?.length}
-										className="col-span-4 sm:col-span-2 px-3 py-2 border border-neutral-300 rounded-md text-sm"
-									>
-										<option value="">Size</option>
-										{product?.sizes?.map((size) => (
-											<option key={size} value={size}>
-												{size}
-											</option>
-										))}
-									</select>
-									<select
-										value={item.color || ""}
-										onChange={(e) => updateItem(index, { color: e.target.value })}
-										disabled={!product?.colors?.length}
-										className="col-span-4 sm:col-span-2 px-3 py-2 border border-neutral-300 rounded-md text-sm"
-									>
-										<option value="">Color</option>
-										{product?.colors?.map((color) => (
-											<option key={color} value={color}>
-												{color}
-											</option>
-										))}
-									</select>
-									<input
-										type="number"
-										min={1}
-										value={item.quantity}
-										onChange={(e) => updateItem(index, { quantity: Number(e.target.value) })}
-										className="col-span-3 sm:col-span-2 px-3 py-2 border border-neutral-300 rounded-md text-sm"
-									/>
-									<button
-										type="button"
-										onClick={() => setItems((prev) => prev.filter((_, i) => i !== index))}
-										disabled={items.length === 1}
-										className="col-span-1 text-neutral-400 hover:text-red-600 disabled:opacity-30"
-										aria-label="Remove item"
-									>
-										<Trash2 className="w-4 h-4" />
-									</button>
-								</div>
-								{product && (product.sizes?.length || product.colors?.length) ? (
-									<div className="space-y-2">
-										<label className="flex items-center gap-2 text-sm text-neutral-700">
-											<input
-												type="checkbox"
-												checked={item.specMode === "choosable"}
-												onChange={(e) => updateItem(index, { specMode: e.target.checked ? "choosable" : "locked" })}
-											/>
-											Let buyer choose size/colour
-										</label>
-										{item.specMode === "choosable" && (
-											<div className="space-y-2 pl-6">
-												<p className="text-xs text-neutral-500">
-													Tick the options the buyer may pick (none ticked = all of the product's options). Size/colour above becomes the default.
-												</p>
-												{(["allowedSizes", "allowedColors"] as const).map((key) => {
-													const options = key === "allowedSizes" ? product.sizes : product.colors;
-													if (!options?.length) return null;
-													return (
-														<div key={key} className="flex flex-wrap items-center gap-2">
-															<span className="text-xs font-medium text-neutral-600 w-14">
-																{key === "allowedSizes" ? "Sizes" : "Colours"}
-															</span>
-															{options.map((option) => {
-																const selected = item[key]?.includes(option);
-																return (
-																	<button
-																		type="button"
-																		key={option}
-																		onClick={() => toggleOption(index, key, option)}
-																		className={`px-2 py-0.5 rounded-full border text-xs ${
-																			selected
-																				? "bg-neutral-900 text-white border-neutral-900"
-																				: "border-neutral-300 text-neutral-700 hover:border-neutral-500"
-																		}`}
-																	>
-																		{option}
-																	</button>
-																);
-															})}
-														</div>
-													);
-												})}
-											</div>
-										)}
-									</div>
-								) : null}
-								</div>
-							);
-						})}
+										<button
+											type="button"
+											onClick={() => setEditingId(active ? null : item.product)}
+											className="pl-2.5 pr-1 py-1 truncate min-w-0 text-left"
+											title={`${name} ${spec}`}
+										>
+											<span className="font-medium">{name}</span> <span className="opacity-70">{spec}</span>
+										</button>
+										<button type="button" onClick={() => removeProduct(item.product)} className="pr-2 pl-0.5 py-1 shrink-0" aria-label={`Remove ${name}`}>
+											<X className="w-3 h-3" />
+										</button>
+									</span>
+								);
+							})}
+						</div>
 					</div>
+
+					{editingItem && editingProduct && (
+						<div className="mt-3 rounded-md border border-neutral-200 p-3 space-y-3 bg-neutral-50">
+							<div className="flex items-center justify-between gap-2">
+								<p className="text-sm font-medium text-neutral-900 truncate" title={editingProduct.name}>
+									{editingProduct.name}
+								</p>
+								<button type="button" onClick={() => setEditingId(null)} className="text-xs font-medium text-neutral-600 shrink-0">
+									Done
+								</button>
+							</div>
+							<div className="grid grid-cols-3 gap-2">
+								<select
+									value={editingItem.size || ""}
+									onChange={(e) => updateItem(editingItem.product, { size: e.target.value })}
+									disabled={!editingProduct.sizes?.length}
+									className="px-2 py-2 border border-neutral-300 rounded-md text-sm min-w-0 bg-white"
+									aria-label="Size"
+								>
+									<option value="">Size</option>
+									{editingProduct.sizes?.map((size) => (
+										<option key={size} value={size}>
+											{size}
+										</option>
+									))}
+								</select>
+								<select
+									value={editingItem.color || ""}
+									onChange={(e) => updateItem(editingItem.product, { color: e.target.value })}
+									disabled={!editingProduct.colors?.length}
+									className="px-2 py-2 border border-neutral-300 rounded-md text-sm min-w-0 bg-white"
+									aria-label="Colour"
+								>
+									<option value="">Colour</option>
+									{editingProduct.colors?.map((color) => (
+										<option key={color} value={color}>
+											{color}
+										</option>
+									))}
+								</select>
+								<DigitsInput
+									value={editingItem.qty}
+									ariaLabel="Quantity"
+									placeholder="Qty"
+									onChange={(qty) => updateItem(editingItem.product, { qty })}
+									onBlur={() => {
+										if (!Number(editingItem.qty)) updateItem(editingItem.product, { qty: "1" });
+									}}
+									className="bg-white"
+								/>
+							</div>
+							{editingProduct.sizes?.length || editingProduct.colors?.length ? (
+								<div className="space-y-2">
+									<label className="flex items-center gap-2 text-sm text-neutral-700">
+										<input
+											type="checkbox"
+											checked={editingItem.specMode === "choosable"}
+											onChange={(e) => updateItem(editingItem.product, { specMode: e.target.checked ? "choosable" : "locked" })}
+										/>
+										Let buyer choose size/colour
+									</label>
+									{editingItem.specMode === "choosable" && (
+										<div className="space-y-2">
+											<p className="text-xs text-neutral-500">Tick allowed options (none = all). Size/colour above is the default.</p>
+											{(["allowedSizes", "allowedColors"] as const).map((key) => {
+												const options = key === "allowedSizes" ? editingProduct.sizes : editingProduct.colors;
+												if (!options?.length) return null;
+												return (
+													<div key={key} className="flex flex-wrap items-center gap-1.5">
+														<span className="text-xs font-medium text-neutral-600 w-14">{key === "allowedSizes" ? "Sizes" : "Colours"}</span>
+														{options.map((option) => {
+															const selected = editingItem[key]?.includes(option);
+															return (
+																<button
+																	type="button"
+																	key={option}
+																	onClick={() => toggleOption(editingItem.product, key, option)}
+																	className={`px-2 py-0.5 rounded-full border text-xs ${
+																		selected ? "bg-neutral-900 text-white border-neutral-900" : "bg-white border-neutral-300 text-neutral-700"
+																	}`}
+																>
+																	{option}
+																</button>
+															);
+														})}
+													</div>
+												);
+											})}
+										</div>
+									)}
+								</div>
+							) : null}
+						</div>
+					)}
 				</div>
 
 				<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-					{isEdit ? (
-						<Input
-							label="Expires at"
-							type="datetime-local"
-							value={expiresAt}
-							onChange={(e) => setExpiresAt(e.target.value)}
+					<div className="min-w-0">
+						<label className="block text-sm font-medium text-neutral-700 mb-2">
+							{isEdit ? "New expiry (from now)" : "Link lasts for"}
+						</label>
+						<div className="flex gap-2">
+							<DigitsInput
+								value={expiryAmount}
+								onChange={setExpiryAmount}
+								placeholder={isEdit ? "Unchanged" : "48"}
+								ariaLabel="Expiry amount"
+								className="flex-1"
+							/>
+							<select
+								value={expiryUnit}
+								onChange={(e) => setExpiryUnit(e.target.value as Unit)}
+								className="px-3 py-2 border border-neutral-300 rounded-md text-sm"
+								aria-label="Expiry unit"
+							>
+								<option value="seconds">seconds</option>
+								<option value="minutes">minutes</option>
+								<option value="hours">hours</option>
+								<option value="days">days</option>
+							</select>
+						</div>
+						<p className={`text-xs mt-1 ${expiryTooLong ? "text-red-600" : "text-neutral-500"}`}>
+							{expiryTooLong
+								? "Maximum is 90 days"
+								: computedExpiry
+								? `Expires ${formatDate(computedExpiry)}`
+								: isEdit && link
+								? `Currently expires ${formatDate(new Date(link.expiresAt))}`
+								: "Default 48 hours"}
+						</p>
+					</div>
+					<div className="min-w-0">
+						<label className="block text-sm font-medium text-neutral-700 mb-2">Max uses (optional)</label>
+						<DigitsInput
+							value={maxUses}
+							onChange={setMaxUses}
+							onBlur={() => {
+								if (maxUses && !Number(maxUses)) setMaxUses("");
+							}}
+							placeholder="Unlimited"
+							ariaLabel="Max uses"
+							className="w-full"
 						/>
-					) : (
-						<Input
-							label="Expires in (hours)"
-							type="number"
-							min={1}
-							value={expiresInHours}
-							onChange={(e) => setExpiresInHours(Number(e.target.value))}
-							helperText="Default 48 hours"
-						/>
-					)}
-					<Input
-						label="Max uses (optional)"
-						type="number"
-						min={1}
-						value={maxUses}
-						onChange={(e) => setMaxUses(e.target.value)}
-						helperText="Leave empty for unlimited until expiry"
-					/>
-				</div>
-
-				<div className="flex justify-end gap-3 pt-2">
-					<Button variant="secondary" onClick={onClose}>
-						Cancel
-					</Button>
-					<Button onClick={handleSave} isLoading={saving}>
-						{isEdit ? "Save changes" : "Create link"}
-					</Button>
+						<p className="text-xs mt-1 text-neutral-500">Leave empty for unlimited until expiry</p>
+					</div>
 				</div>
 			</div>
 		</Modal>

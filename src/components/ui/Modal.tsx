@@ -1,6 +1,7 @@
 
 // components/ui/Modal.tsx
 import React, { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 import { clsx } from 'clsx'
@@ -12,6 +13,7 @@ interface ModalProps {
   children: React.ReactNode
   size?: 'sm' | 'md' | 'lg' | 'xl'
   showCloseButton?: boolean
+  footer?: React.ReactNode // pinned below the scrollable body
 }
 
 const Modal: React.FC<ModalProps> = ({
@@ -20,7 +22,8 @@ const Modal: React.FC<ModalProps> = ({
   title,
   children,
   size = 'md',
-  showCloseButton = true
+  showCloseButton = true,
+  footer
 }) => {
   const sizes = {
     sm: 'max-w-md',
@@ -47,60 +50,63 @@ const Modal: React.FC<ModalProps> = ({
     }
   }, [isOpen, onClose])
 
-  return (
+  // Portalled to <body>: rendered inline, a parent's `space-y-*` gave the fixed overlay a top margin
+  // (the 24px gap above staff modals). Full-screen sheet on mobile, centred dialog from sm up.
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/50 z-50"
+            className="fixed inset-0 m-0 bg-black/50 z-50"
           />
-          
-          {/* Modal */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 m-0 z-50 flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              role="dialog"
+              aria-modal="true"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
               transition={{ duration: 0.2 }}
               className={clsx(
-                'bg-white rounded-lg shadow-xl w-full',
+                'bg-white shadow-xl w-full flex flex-col min-w-0 max-h-[100dvh] rounded-t-xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-lg',
                 sizes[size]
               )}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Header */}
               {(title || showCloseButton) && (
-                <div className="flex items-center justify-between p-6 border-b border-neutral-200">
+                <div className="flex items-center justify-between gap-3 px-4 py-3 sm:p-6 border-b border-neutral-200 shrink-0">
                   {title && (
-                    <h2 className="text-xl font-serif font-semibold text-neutral-900">
+                    <h2 className="text-lg sm:text-xl font-serif font-semibold text-neutral-900 truncate min-w-0">
                       {title}
                     </h2>
                   )}
                   {showCloseButton && (
                     <button
                       onClick={onClose}
-                      className="p-2 hover:bg-neutral-100 rounded-md transition-colors"
+                      aria-label="Close"
+                      className="p-2 hover:bg-neutral-100 rounded-md transition-colors shrink-0 ml-auto"
                     >
                       <X className="w-4 h-4" />
                     </button>
                   )}
                 </div>
               )}
-              
-              {/* Content */}
-              <div className="p-6">
-                {children}
-              </div>
+              <div className="p-4 sm:p-6 overflow-y-auto overflow-x-hidden flex-1 min-h-0">{children}</div>
+              {footer && (
+                <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-neutral-200 shrink-0 bg-white sm:rounded-b-lg">
+                  {footer}
+                </div>
+              )}
             </motion.div>
           </div>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   )
 }
 
