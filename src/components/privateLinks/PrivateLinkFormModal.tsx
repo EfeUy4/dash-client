@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, Search, X } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -197,163 +197,18 @@ const PrivateLinkFormModal = ({ isOpen, onClose, link, onSaved }: PrivateLinkFor
 		}
 	};
 
-	const editingItem = items.find((item) => item.product === editingId);
-	const editingProduct = editingId ? productById.get(editingId) : undefined;
+	const addedPublic = otherProducts.filter((p) => selectedIds.has(p.id));
 
-	const footer = (
-		<div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3">
-			<Button variant="secondary" onClick={onClose} className="w-full sm:w-auto">
-				Cancel
-			</Button>
-			<Button onClick={handleSave} isLoading={saving} className="w-full sm:w-auto">
-				{isEdit ? "Save changes" : "Create link"}
-			</Button>
-		</div>
-	);
+	const specSummary = (item: PrivateLinkItemInput & { qty: string }) =>
+		[
+			`×${item.qty || 1}`,
+			item.specMode === "choosable" ? "buyer chooses" : [item.size, item.color].filter(Boolean).join(" · "),
+		]
+			.filter(Boolean)
+			.join(" · ");
 
-	return (
-		<Modal isOpen={isOpen} onClose={onClose} title={isEdit ? "Edit private link" : "New private sale link"} size="xl" footer={footer}>
-			<div className="space-y-5 min-w-0">
-				<Input label="Title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Custom gown for Mrs. A" />
-
-				<div>
-					<label className="block text-sm font-medium text-neutral-700 mb-2">Note (shown to the customer)</label>
-					<textarea
-						value={note}
-						onChange={(e) => setNote(e.target.value)}
-						rows={2}
-						className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-neutral-400"
-					/>
-				</div>
-
-				{/* Products: dropdown checklist of private products + compact selected chips */}
-				<div className="min-w-0">
-					<label className="block text-sm font-medium text-neutral-700 mb-2">Products</label>
-					<button
-						type="button"
-						onClick={() => setPickerOpen((open) => !open)}
-						className="w-full flex items-center justify-between gap-2 px-3 py-2 border border-neutral-300 rounded-md text-sm text-left bg-white"
-						aria-expanded={pickerOpen}
-					>
-						<span className="truncate">
-							{pickablePrivate.length === 0
-								? "No private products in stock"
-								: `${selectedPrivateCount} of ${pickablePrivate.length} private products selected`}
-						</span>
-						<ChevronDown className={`w-4 h-4 shrink-0 transition-transform ${pickerOpen ? "rotate-180" : ""}`} />
-					</button>
-					{skippedCount > 0 && (
-						<p className="text-xs text-neutral-500 mt-1">
-							{skippedCount} out-of-stock private product{skippedCount === 1 ? "" : "s"} not listed
-						</p>
-					)}
-					{privateProducts.length === 0 && (
-						<p className="text-xs text-neutral-500 mt-1">Mark products as private to list them here.</p>
-					)}
-
-					{pickerOpen && pickablePrivate.length > 0 && (
-						<div className="mt-2 border border-neutral-200 rounded-md bg-white shadow-sm">
-							<div className="p-2 border-b border-neutral-200 space-y-2">
-								<div className="relative">
-									<Search className="w-4 h-4 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-									<input
-										value={search}
-										onChange={(e) => setSearch(e.target.value)}
-										placeholder="Search private products"
-										className="w-full pl-8 pr-3 py-1.5 border border-neutral-300 rounded-md text-sm"
-									/>
-								</div>
-								<div className="flex items-center justify-between text-xs">
-									<span className="text-neutral-500">{filteredPrivate.length} shown</span>
-									<span className="flex gap-3">
-										<button type="button" onClick={() => selectAllPrivate(filteredPrivate)} className="font-medium text-neutral-700 hover:text-neutral-900">
-											Select all
-										</button>
-										<button type="button" onClick={() => clearPrivate(filteredPrivate)} className="font-medium text-neutral-700 hover:text-red-600">
-											Clear
-										</button>
-									</span>
-								</div>
-							</div>
-							<ul className="max-h-56 overflow-y-auto py-1">
-								{filteredPrivate.map((p) => (
-									<li key={p.id}>
-										<label className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-neutral-50 cursor-pointer min-w-0">
-											<input type="checkbox" checked={selectedIds.has(p.id)} onChange={() => toggleProduct(p)} className="shrink-0" />
-											<span className="truncate" title={p.name}>
-												{p.name}
-											</span>
-											<span className="ml-auto text-xs text-neutral-400 shrink-0">{p.stockCount} in stock</span>
-										</label>
-									</li>
-								))}
-								{filteredPrivate.length === 0 && <li className="px-3 py-2 text-sm text-neutral-500">No matches</li>}
-							</ul>
-						</div>
-					)}
-
-					{otherProducts.length > 0 && (
-						<select
-							value=""
-							onChange={(e) => {
-								const p = productById.get(e.target.value);
-								if (p) addProduct(p);
-							}}
-							className="mt-2 w-full px-3 py-2 border border-neutral-300 rounded-md text-sm text-neutral-600"
-						>
-							<option value="">+ Add a public product…</option>
-							{otherProducts
-								.filter((p) => !selectedIds.has(p.id))
-								.map((p) => (
-									<option key={p.id} value={p.id}>
-										{p.name} ({p.sku})
-									</option>
-								))}
-						</select>
-					)}
-
-					{/* Selected items: fixed-height area, tap a chip to edit its specs */}
-					<div className="mt-3">
-						<p className="text-xs text-neutral-500 mb-1.5">
-							{items.length} item{items.length === 1 ? "" : "s"} in this link · tap one to set size, colour, quantity or buyer choice
-						</p>
-						<div className="max-h-32 overflow-y-auto flex flex-wrap gap-1.5">
-							{items.map((item) => {
-								const p = productById.get(item.product);
-								const name = p?.name || "Unavailable product";
-								const spec = [
-									`×${item.qty || 1}`,
-									item.specMode === "choosable" ? "buyer chooses" : [item.size, item.color].filter(Boolean).join(" · "),
-								]
-									.filter(Boolean)
-									.join(" · ");
-								const active = editingId === item.product;
-								return (
-									<span
-										key={item.product}
-										className={`inline-flex items-center max-w-full rounded-full border text-xs ${
-											active ? "bg-neutral-900 text-white border-neutral-900" : "bg-neutral-50 border-neutral-300 text-neutral-800"
-										}`}
-									>
-										<button
-											type="button"
-											onClick={() => setEditingId(active ? null : item.product)}
-											className="pl-2.5 pr-1 py-1 truncate min-w-0 text-left"
-											title={`${name} ${spec}`}
-										>
-											<span className="font-medium">{name}</span> <span className="opacity-70">{spec}</span>
-										</button>
-										<button type="button" onClick={() => removeProduct(item.product)} className="pr-2 pl-0.5 py-1 shrink-0" aria-label={`Remove ${name}`}>
-											<X className="w-3 h-3" />
-										</button>
-									</span>
-								);
-							})}
-						</div>
-					</div>
-
-					{editingItem && editingProduct && (
-						<div className="mt-3 rounded-md border border-neutral-200 p-3 space-y-3 bg-neutral-50">
+	const renderEditor = (editingItem: PrivateLinkItemInput & { qty: string }, editingProduct: Product) => (
+						<div className="mx-3 mb-2 rounded-md border border-neutral-200 p-3 space-y-3 bg-neutral-50">
 							<div className="flex items-center justify-between gap-2">
 								<p className="text-sm font-medium text-neutral-900 truncate" title={editingProduct.name}>
 									{editingProduct.name}
@@ -444,7 +299,150 @@ const PrivateLinkFormModal = ({ isOpen, onClose, link, onSaved }: PrivateLinkFor
 								</div>
 							) : null}
 						</div>
+						);
+
+	const renderRow = (p: Product) => {
+		const item = items.find((i) => i.product === p.id);
+		const open = editingId === p.id && !!item;
+		return (
+			<li key={p.id}>
+				<div className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-neutral-50 min-w-0">
+					<input type="checkbox" checked={!!item} onChange={() => toggleProduct(p)} className="shrink-0" aria-label={p.name} />
+					<button
+						type="button"
+						disabled={!item}
+						onClick={() => setEditingId(open ? null : p.id)}
+						className="flex-1 min-w-0 flex items-center gap-2 text-left disabled:cursor-default"
+						title={item ? `Edit ${p.name}` : p.name}
+					>
+						<span className="min-w-0 flex-1">
+							<span className="block truncate">{p.name}</span>
+							<span className="block truncate text-xs text-neutral-500">
+								{item ? specSummary(item) : `${p.stockCount} in stock`}
+							</span>
+						</span>
+						{item && <ChevronDown className={`w-4 h-4 shrink-0 text-neutral-400 transition-transform ${open ? "rotate-180" : ""}`} />}
+					</button>
+				</div>
+				{open && renderEditor(item!, p)}
+			</li>
+		);
+	};
+
+	const footer = (
+		<div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3">
+			<Button variant="secondary" onClick={onClose} className="w-full sm:w-auto">
+				Cancel
+			</Button>
+			<Button onClick={handleSave} isLoading={saving} className="w-full sm:w-auto">
+				{isEdit ? "Save changes" : "Create link"}
+			</Button>
+		</div>
+	);
+
+	return (
+		<Modal isOpen={isOpen} onClose={onClose} title={isEdit ? "Edit private link" : "New private sale link"} size="xl" footer={footer}>
+			<div className="space-y-5 min-w-0">
+				<Input label="Title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Custom gown for Mrs. A" />
+
+				<div>
+					<label className="block text-sm font-medium text-neutral-700 mb-2">Note (shown to the customer)</label>
+					<textarea
+						value={note}
+						onChange={(e) => setNote(e.target.value)}
+						rows={2}
+						className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-neutral-400"
+					/>
+				</div>
+
+				{/* Products: dropdown checklist of private products + compact selected chips */}
+				<div className="min-w-0">
+					<label className="block text-sm font-medium text-neutral-700 mb-2">Products</label>
+					<button
+						type="button"
+						onClick={() => setPickerOpen((open) => !open)}
+						className="w-full flex items-center justify-between gap-2 px-3 py-2 border border-neutral-300 rounded-md text-sm text-left bg-white"
+						aria-expanded={pickerOpen}
+					>
+						<span className="truncate">
+							{pickablePrivate.length === 0
+								? "No private products in stock"
+								: `${selectedPrivateCount} of ${pickablePrivate.length} private products selected`}
+							{addedPublic.length > 0 ? ` + ${addedPublic.length} public` : ""}
+						</span>
+						<ChevronDown className={`w-4 h-4 shrink-0 transition-transform ${pickerOpen ? "rotate-180" : ""}`} />
+					</button>
+					{skippedCount > 0 && (
+						<p className="text-xs text-neutral-500 mt-1">
+							{skippedCount} out-of-stock private product{skippedCount === 1 ? "" : "s"} not listed
+						</p>
 					)}
+					{privateProducts.length === 0 && (
+						<p className="text-xs text-neutral-500 mt-1">Mark products as private to list them here.</p>
+					)}
+
+					{pickerOpen && (pickablePrivate.length > 0 || addedPublic.length > 0) && (
+						<div className="mt-2 border border-neutral-200 rounded-md bg-white shadow-sm">
+							<div className="p-2 border-b border-neutral-200 space-y-2">
+								<div className="relative">
+									<Search className="w-4 h-4 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+									<input
+										value={search}
+										onChange={(e) => setSearch(e.target.value)}
+										placeholder="Search private products"
+										className="w-full pl-8 pr-3 py-1.5 border border-neutral-300 rounded-md text-sm"
+									/>
+								</div>
+								<div className="flex items-center justify-between text-xs">
+									<span className="text-neutral-500">{filteredPrivate.length} shown</span>
+									<span className="flex gap-3">
+										<button type="button" onClick={() => selectAllPrivate(filteredPrivate)} className="font-medium text-neutral-700 hover:text-neutral-900">
+											Select all
+										</button>
+										<button type="button" onClick={() => clearPrivate(filteredPrivate)} className="font-medium text-neutral-700 hover:text-red-600">
+											Clear
+										</button>
+									</span>
+								</div>
+							</div>
+							<ul className="max-h-72 overflow-y-auto py-1">
+								{filteredPrivate.map(renderRow)}
+								{filteredPrivate.length === 0 && <li className="px-3 py-2 text-sm text-neutral-500">No matches</li>}
+								{addedPublic.length > 0 && (
+									<>
+										<li className="px-3 pt-2 pb-1 text-xs font-medium uppercase tracking-wider text-neutral-500 border-t border-neutral-100">
+											Public products added
+										</li>
+										{addedPublic.map(renderRow)}
+									</>
+								)}
+							</ul>
+						</div>
+					)}
+
+					{otherProducts.length > 0 && (
+						<select
+							value=""
+							onChange={(e) => {
+								const p = productById.get(e.target.value);
+								if (p) {
+									addProduct(p);
+									setPickerOpen(true);
+								}
+							}}
+							className="mt-2 w-full px-3 py-2 border border-neutral-300 rounded-md text-sm text-neutral-600"
+						>
+							<option value="">+ Add a public product…</option>
+							{otherProducts
+								.filter((p) => !selectedIds.has(p.id))
+								.map((p) => (
+									<option key={p.id} value={p.id}>
+										{p.name} ({p.sku})
+									</option>
+								))}
+						</select>
+					)}
+
 				</div>
 
 				<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
