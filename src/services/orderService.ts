@@ -10,8 +10,8 @@ export interface CreateOrderData {
 	items?: Array<{
 		productId: string;
 		quantity: number;
-		size: string;
-		color: string;
+		size?: string;
+		color?: string;
 	}>;
 	shippingAddress: {
 		firstName: string;
