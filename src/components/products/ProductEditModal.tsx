@@ -133,7 +133,12 @@ const ProductEditModal = ({ product, onClose, onSave }: ProductEditModalProps) =
 				seoDescription: formData.seoDescription || undefined,
 			};
 
-			const { data } = await api.put(`/products/${product.id}`, cleanedData);
+			// Only send stock if it was edited here: sales made while this modal was open must not be
+			// overwritten by the stock value captured when it opened
+			const payload: Partial<typeof cleanedData> = { ...cleanedData };
+			if (Number(formData.stockCount) === Number(product.stockCount)) delete payload.stockCount;
+
+			const { data } = await api.put(`/products/${product.id}`, payload);
 
 			// The response should be the updated product
 			onSave(data);
