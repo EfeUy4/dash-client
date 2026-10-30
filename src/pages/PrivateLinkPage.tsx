@@ -1,13 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Check, ChevronRight, Clock, Lock } from "lucide-react";
+import { Check, Clock, Lock, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import Paystack from "@paystack/inline-js";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
 import Modal from "../components/ui/Modal";
 import { useToastUtils } from "@/services/toast";
-import { privateLinkService, ResolvedPrivateLink } from "@/services/privateLinkService";
-import { paymentService, OrderQuote } from "@/services/paymentService";
+import { privateLinkService, ResolvedPrivateLink, CollectionProduct } from "@/services/privateLinkService";
+import { paymentService, OrderQuote, QuoteItemInput } from "@/services/paymentService";
 import { orderService } from "@/services/orderService";
 
 const formatPrice = (price: number) =>
@@ -36,34 +36,38 @@ const useNoIndex = () => {
 	}, []);
 };
 
-type Selection = { size?: string; color?: string };
-type LinkItem = ResolvedPrivateLink["items"][number];
+type CartLine = QuoteItemInput;
 
-// Start each choosable item on its preset (if still allowed) or its first option, so the quote is always valid
-const defaultSelections = (link: ResolvedPrivateLink): Selection[] =>
-	link.items.map((item) => {
-		if (item.specMode !== "choosable") return {};
-		const pick = (preset: string | undefined, options: string[] = []) =>
-			preset && options.includes(preset) ? preset : options[0];
-		return { size: pick(item.size, item.sizeOptions), color: pick(item.color, item.colorOptions) };
-	});
+const lineKey = (line: CartLine) => `${line.productId}|${line.size || ""}|${line.color || ""}`;
+// Private cart is scoped to this link so it never mixes with the public cart
+const cartStorageKey = (token: string) => `dashng-private-cart:${token.slice(0, 16)}`;
 
-// Unlisted page for a private sale link: /p/:token (guest checkout, no login)
+// Unlisted private collection: /p/:token (browse, add to a private cart, guest checkout)
 const PrivateLinkPage = () => {
 	useNoIndex();
 	const { token = "" } = useParams();
 	const { showSuccessToast, showErrorToast } = useToastUtils();
 
 	const [link, setLink] = useState<ResolvedPrivateLink | null>(null);
-	const [quote, setQuote] = useState<OrderQuote | null>(null);
 	const [invalid, setInvalid] = useState(false);
 	const [loading, setLoading] = useState(true);
 	const [now, setNow] = useState(Date.now());
+	const [cart, setCart] = useState<CartLine[]>(() => {
+		try {
+			return JSON.parse(localStorage.getItem(cartStorageKey(token)) || "[]");
+		} catch {
+			return [];
+		}
+	});
+	const [quote, setQuote] = useState<OrderQuote | null>(null);
+	const [quoteError, setQuoteError] = useState("");
+	const [view, setView] = useState<"shop" | "checkout">("shop");
+	const [cartOpen, setCartOpen] = useState(false);
+	const [viewing, setViewing] = useState<CollectionProduct | null>(null);
+	const [activeImage, setActiveImage] = useState(0);
+	const [choice, setChoice] = useState<{ size?: string; color?: string; qty: number }>({ qty: 1 });
 	const [isProcessing, setIsProcessing] = useState(false);
 	const [order, setOrder] = useState<any>(null);
-	const [selections, setSelections] = useState<Selection[]>([]);
-	const [viewing, setViewing] = useState<number | null>(null);
-	const [activeImage, setActiveImage] = useState(0);
 	const [formData, setFormData] = useState({
 		email: "",
 		firstName: "",
@@ -81,13 +85,7 @@ const PrivateLinkPage = () => {
 		(async () => {
 			try {
 				const resolved = await privateLinkService.resolve(token);
-				const initialSelections = defaultSelections(resolved);
-				const linkQuote = await paymentService.getQuote({ privateLinkToken: token, selections: initialSelections });
-				if (!cancelled) {
-					setLink(resolved);
-					setSelections(initialSelections);
-					setQuote(linkQuote);
-				}
+				if (!cancelled) setLink(resolved);
 			} catch {
 				if (!cancelled) setInvalid(true);
 			} finally {
@@ -104,59 +102,92 @@ const PrivateLinkPage = () => {
 		return () => clearInterval(timer);
 	}, []);
 
-	const updateSelection = async (index: number, changes: Selection) => {
-		const next = selections.map((selection, i) => (i === index ? { ...selection, ...changes } : selection));
-		setSelections(next);
-		try {
-			setQuote(await paymentService.getQuote({ privateLinkToken: token, selections: next }));
-		} catch (error: any) {
-			showErrorToast(error.message || "That option isn't available");
+	const products = useMemo(() => link?.products || [], [link]);
+	const productById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
+
+	// Drop cart lines for products no longer in the collection
+	useEffect(() => {
+		if (!link) return;
+		setCart((prev) => prev.filter((line) => productById.has(line.productId)));
+	}, [link, productById]);
+
+	useEffect(() => {
+		localStorage.setItem(cartStorageKey(token), JSON.stringify(cart));
+	}, [cart, token]);
+
+	// Server quote is the source of truth for totals, options and stock
+	useEffect(() => {
+		if (!link || cart.length === 0) {
+			setQuote(null);
+			setQuoteError("");
+			return;
 		}
-	};
-
-	const itemSpec = (item: LinkItem, index: number) => {
-		const chosen = item.specMode === "choosable" ? selections[index] || {} : item;
-		return [chosen.size, chosen.color, `Qty ${item.quantity}`].filter(Boolean).join(" • ");
-	};
-
-	const renderOptions = (item: LinkItem, index: number) => {
-		if (item.specMode !== "choosable") return null;
-		const groups = [
-			{ key: "size" as const, label: "Size", options: item.sizeOptions || [] },
-			{ key: "color" as const, label: "Colour", options: item.colorOptions || [] },
-		].filter((group) => group.options.length);
-		return (
-			<div className="space-y-3">
-				{groups.map((group) => (
-					<div key={group.key}>
-						<p className="text-xs font-medium uppercase tracking-wider text-neutral-500 mb-2">Choose {group.label}</p>
-						<div className="flex flex-wrap gap-2">
-							{group.options.map((option) => {
-								const selected = selections[index]?.[group.key] === option;
-								return (
-									<button
-										type="button"
-										key={option}
-										onClick={() => updateSelection(index, { [group.key]: option })}
-										className={`px-3 py-1.5 rounded-md border text-sm ${
-											selected
-												? "bg-neutral-900 text-white border-neutral-900"
-												: "bg-white border-neutral-300 text-neutral-800 hover:border-neutral-500"
-										}`}
-									>
-										{option}
-									</button>
-								);
-							})}
-						</div>
-					</div>
-				))}
-			</div>
-		);
-	};
+		let cancelled = false;
+		paymentService
+			.getQuote({ privateLinkToken: token, items: cart })
+			.then((q) => {
+				if (!cancelled) {
+					setQuote(q);
+					setQuoteError("");
+				}
+			})
+			.catch((error: any) => {
+				if (!cancelled) {
+					setQuote(null);
+					setQuoteError(error.message || "Some items in your cart are no longer available");
+				}
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [cart, link, token]);
 
 	const remaining = link ? new Date(link.expiresAt).getTime() - now : 0;
-	const allAvailable = !!link && link.items.every((item) => item.available);
+	const cartCount = cart.reduce((sum, line) => sum + line.quantity, 0);
+	const qtyInCart = (productId: string) =>
+		cart.filter((line) => line.productId === productId).reduce((sum, line) => sum + line.quantity, 0);
+
+	const openProduct = (product: CollectionProduct) => {
+		setActiveImage(0);
+		setChoice({ size: product.sizes[0], color: product.colors[0], qty: 1 });
+		setViewing(product);
+	};
+
+	const addToCart = () => {
+		if (!viewing) return;
+		if (viewing.sizes.length && !choice.size) return showErrorToast("Please choose a size");
+		if (viewing.colors.length && !choice.color) return showErrorToast("Please choose a colour");
+		const available = viewing.maxQuantity - qtyInCart(viewing.id);
+		if (choice.qty > available) {
+			return showErrorToast(available > 0 ? `Only ${available} more available` : "No more stock available");
+		}
+		const line: CartLine = {
+			productId: viewing.id,
+			size: viewing.sizes.length ? choice.size : undefined,
+			color: viewing.colors.length ? choice.color : undefined,
+			quantity: choice.qty,
+		};
+		setCart((prev) => {
+			const existing = prev.find((l) => lineKey(l) === lineKey(line));
+			return existing
+				? prev.map((l) => (lineKey(l) === lineKey(line) ? { ...l, quantity: l.quantity + line.quantity } : l))
+				: [...prev, line];
+		});
+		setViewing(null);
+		showSuccessToast("Added to cart");
+	};
+
+	const changeQty = (key: string, delta: number) =>
+		setCart((prev) =>
+			prev
+				.map((line) => {
+					if (lineKey(line) !== key) return line;
+					const max = productById.get(line.productId)?.maxQuantity ?? line.quantity;
+					const others = qtyInCart(line.productId) - line.quantity;
+					return { ...line, quantity: Math.min(Math.max(0, line.quantity + delta), Math.max(0, max - others)) };
+				})
+				.filter((line) => line.quantity > 0),
+		);
 
 	const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const { name, value } = e.target;
@@ -179,15 +210,18 @@ const PrivateLinkPage = () => {
 			return;
 		}
 
+		if (cart.length === 0) return;
+
 		setIsProcessing(true);
 		let freshQuote: OrderQuote;
+		const items = cart;
 		try {
 			// Re-quote right before paying; also re-checks that the link is still valid
-			freshQuote = await paymentService.getQuote({ privateLinkToken: token, selections });
+			freshQuote = await paymentService.getQuote({ privateLinkToken: token, items });
 			setQuote(freshQuote);
-		} catch {
+		} catch (error: any) {
 			setIsProcessing(false);
-			setInvalid(true);
+			showErrorToast(error.message || "Your cart needs attention before paying");
 			return;
 		}
 
@@ -223,7 +257,7 @@ const PrivateLinkPage = () => {
 						// Items come from the link on the server; none are sent from here
 						const created = await orderService.createOrder({
 							privateLinkToken: token,
-							selections,
+							items,
 							shippingAddress,
 							paymentMethod: "paystack",
 							paymentDetails: {
@@ -236,6 +270,7 @@ const PrivateLinkPage = () => {
 							},
 						});
 						setOrder(created);
+						setCart([]);
 						showSuccessToast("Payment received. Thank you!");
 					} catch (error: any) {
 						console.error("Private order failed:", error);
@@ -267,14 +302,14 @@ const PrivateLinkPage = () => {
 		return <div className="min-h-screen bg-neutral-50 flex items-center justify-center text-neutral-600">Loading…</div>;
 	}
 
-	if (invalid || !link || !quote) {
+	if (invalid || !link || remaining <= 0) {
 		return (
 			<div className="min-h-screen bg-neutral-50 flex items-center justify-center px-4">
 				<div className="text-center max-w-md">
 					<Clock className="w-10 h-10 text-neutral-400 mx-auto mb-4" />
 					<h1 className="text-2xl font-serif font-bold text-neutral-900 mb-3">This link is no longer available</h1>
 					<p className="text-neutral-600 mb-6">
-						The private link may have expired, been used, or been withdrawn. Please contact the person who
+						The private collection may have expired, been used, or been withdrawn. Please contact the person who
 						sent it to you for a new one.
 					</p>
 					<Link to="/" className="btn-primary">
@@ -310,60 +345,120 @@ const PrivateLinkPage = () => {
 		);
 	}
 
-	return (
-		<div className="min-h-screen bg-neutral-50">
-			<div className="container py-10">
-				<div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-8">
-					<div>
-						<p className="text-xs uppercase tracking-wider text-neutral-500 mb-1">Private sale</p>
-						<h1 className="text-3xl font-serif font-bold text-neutral-900">{link.title}</h1>
-						{link.note && <p className="text-neutral-600 mt-2">{link.note}</p>}
+	const cartLines = cart.map((line) => ({ line, product: productById.get(line.productId) }));
+	const summary = (
+		<div className="space-y-2 text-sm">
+			<div className="flex justify-between">
+				<span className="text-neutral-600">Subtotal</span>
+				<span className="font-medium">{quote ? formatPrice(quote.subtotal) : "—"}</span>
+			</div>
+			<div className="flex justify-between">
+				<span className="text-neutral-600">Shipping</span>
+				<span className="font-medium">
+					{!quote ? "—" : quote.shipping === 0 ? <span className="text-green-600">Free</span> : formatPrice(quote.shipping)}
+				</span>
+			</div>
+			<div className="flex justify-between text-base font-semibold pt-2 border-t border-neutral-200">
+				<span>Total</span>
+				<span>{quote ? formatPrice(quote.total) : "—"}</span>
+			</div>
+			{quoteError && <p className="text-sm text-red-600">{quoteError}</p>}
+		</div>
+	);
+
+	const cartList = (
+		<div className="divide-y divide-neutral-100">
+			{cartLines.map(({ line, product }) => (
+				<div key={lineKey(line)} className="flex items-center gap-3 py-3 min-w-0">
+					<div className="w-14 h-14 bg-neutral-100 rounded-md overflow-hidden shrink-0">
+						{product?.images?.[0] && <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover" />}
 					</div>
-					<div className="inline-flex items-center text-sm text-neutral-700 bg-white border border-neutral-200 rounded-md px-3 py-2">
-						<Clock className="w-4 h-4 mr-2" />
-						Expires in {formatRemaining(remaining)}
+					<div className="flex-1 min-w-0">
+						<p className="text-sm font-medium text-neutral-900 truncate">{product?.name}</p>
+						<p className="text-xs text-neutral-500 truncate">{[line.size, line.color].filter(Boolean).join(" · ")}</p>
+						<p className="text-xs text-neutral-700">{product ? formatPrice(product.priceNGN * line.quantity) : ""}</p>
+					</div>
+					<div className="flex items-center gap-1 shrink-0">
+						<button type="button" onClick={() => changeQty(lineKey(line), -1)} className="p-1.5 border border-neutral-300 rounded-md" aria-label="Decrease">
+							{line.quantity === 1 ? <Trash2 className="w-3.5 h-3.5" /> : <Minus className="w-3.5 h-3.5" />}
+						</button>
+						<span className="w-7 text-center text-sm">{line.quantity}</span>
+						<button type="button" onClick={() => changeQty(lineKey(line), 1)} className="p-1.5 border border-neutral-300 rounded-md" aria-label="Increase">
+							<Plus className="w-3.5 h-3.5" />
+						</button>
 					</div>
 				</div>
+			))}
+		</div>
+	);
 
-				<div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-					<div className="lg:col-span-2 space-y-6">
-						<div className="bg-white rounded-lg shadow-sm border border-neutral-200 p-4 sm:p-6 space-y-4">
-							{link.items.map((item, index) => (
-								<div key={index} className="space-y-3">
-									<button
-										type="button"
-										onClick={() => {
-											setActiveImage(0);
-											setViewing(index);
-										}}
-										disabled={!item.product}
-										className="w-full flex items-center gap-3 sm:gap-4 text-left group"
-									>
-										<div className="w-16 h-16 sm:w-20 sm:h-20 bg-neutral-100 rounded-md overflow-hidden shrink-0">
-											{item.product?.images?.[0] && (
-												<img src={item.product.images[0]} alt={item.product.name} className="w-full h-full object-cover" />
-											)}
-										</div>
-										<div className="flex-1 min-w-0">
-											<p className="font-medium text-neutral-900 line-clamp-2 group-hover:underline">
-												{item.product?.name || "Unavailable item"}
-											</p>
-											<p className="text-sm text-neutral-600 line-clamp-2">{itemSpec(item, index)}</p>
-											{item.product && <p className="text-xs text-neutral-500">View details</p>}
-											{!item.available && <p className="text-sm text-red-600">Currently unavailable</p>}
-										</div>
-										{item.lineTotalNGN !== undefined && (
-											<p className="font-medium text-neutral-900 shrink-0">{formatPrice(item.lineTotalNGN)}</p>
+	return (
+		<div className="min-h-screen bg-neutral-50">
+			<div className="sticky top-0 z-30 bg-neutral-900 text-white">
+				<div className="container py-2 flex items-center justify-between gap-3 text-sm">
+					<span className="flex items-center gap-2 min-w-0">
+						<Lock className="w-4 h-4 shrink-0" />
+						<span className="truncate">Private collection · expires in {formatRemaining(remaining)}</span>
+					</span>
+					<button type="button" onClick={() => setCartOpen(true)} className="relative flex items-center gap-1.5 shrink-0" aria-label="Open cart">
+						<ShoppingBag className="w-5 h-5" />
+						<span className="hidden sm:inline">Cart</span>
+						{cartCount > 0 && (
+							<span className="min-w-5 h-5 px-1 rounded-full bg-white text-neutral-900 text-xs font-semibold flex items-center justify-center">
+								{cartCount}
+							</span>
+						)}
+					</button>
+				</div>
+			</div>
+
+			<div className="container py-8">
+				<div className="mb-6">
+					<p className="text-xs uppercase tracking-wider text-neutral-500 mb-1">Private sale</p>
+					<h1 className="text-2xl sm:text-3xl font-serif font-bold text-neutral-900">{link.title}</h1>
+					{link.note && <p className="text-neutral-600 mt-2">{link.note}</p>}
+				</div>
+
+				{view === "shop" ? (
+					products.length === 0 ? (
+						<p className="text-neutral-600">No items are available in this collection right now.</p>
+					) : (
+						<div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+							{products.map((product) => (
+								<button type="button" key={product.id} onClick={() => openProduct(product)} className="text-left group min-w-0">
+									<div className="aspect-square bg-neutral-100 rounded-lg overflow-hidden mb-2 relative">
+										{product.images[0] && (
+											<img
+												src={product.images[0]}
+												alt={product.name}
+												className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+											/>
 										)}
-										{item.product && <ChevronRight className="w-4 h-4 text-neutral-400 shrink-0" />}
-									</button>
-									{item.specMode === "choosable" && <div className="sm:pl-24">{renderOptions(item, index)}</div>}
-								</div>
+										{!product.inStock && (
+											<span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-white/90 text-xs text-neutral-700">Sold out</span>
+										)}
+									</div>
+									{product.brand && <p className="text-xs uppercase tracking-wider text-neutral-500 truncate">{product.brand}</p>}
+									<p className="text-sm font-medium text-neutral-900 line-clamp-2">{product.name}</p>
+									<p className="text-sm text-neutral-700 mt-0.5">
+										{formatPrice(product.priceNGN)}
+										{product.originalPriceNGN && product.originalPriceNGN > product.priceNGN ? (
+											<span className="ml-2 text-xs text-neutral-400 line-through">{formatPrice(product.originalPriceNGN)}</span>
+										) : null}
+									</p>
+								</button>
 							))}
 						</div>
-
-						<div className="bg-white rounded-lg shadow-sm border border-neutral-200 p-6">
-							<h2 className="text-lg font-serif font-semibold text-neutral-900 mb-4">Your details</h2>
+					)
+				) : (
+					<div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+						<div className="lg:col-span-2 bg-white rounded-lg shadow-sm border border-neutral-200 p-4 sm:p-6">
+							<div className="flex items-center justify-between gap-3 mb-4">
+								<h2 className="text-lg font-serif font-semibold text-neutral-900">Your details</h2>
+								<button type="button" onClick={() => setView("shop")} className="text-sm text-neutral-600 hover:text-neutral-900">
+									← Continue shopping
+								</button>
+							</div>
 							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 								<Input label="First name" name="firstName" value={formData.firstName} onChange={handleInputChange} required />
 								<Input label="Last name" name="lastName" value={formData.lastName} onChange={handleInputChange} required />
@@ -378,108 +473,152 @@ const PrivateLinkPage = () => {
 								<Input label="Country" name="country" value={formData.country} onChange={handleInputChange} required />
 							</div>
 						</div>
-					</div>
-
-					<div className="lg:col-span-1">
-						<div className="bg-white rounded-lg shadow-sm border border-neutral-200 p-6 sticky top-24">
-							<h3 className="text-lg font-serif font-semibold text-neutral-900 mb-4">Order Summary</h3>
-							<div className="space-y-2 py-4 border-t border-neutral-200 text-sm">
-								<div className="flex justify-between">
-									<span className="text-neutral-600">Subtotal</span>
-									<span className="font-medium">{formatPrice(quote.subtotal)}</span>
-								</div>
-								<div className="flex justify-between">
-									<span className="text-neutral-600">Shipping</span>
-									<span className="font-medium">
-										{quote.shipping === 0 ? <span className="text-green-600">Free</span> : formatPrice(quote.shipping)}
-									</span>
-								</div>
-								<div className="flex justify-between text-lg font-semibold pt-2 border-t border-neutral-200">
-									<span>Total</span>
-									<span>{formatPrice(quote.total)}</span>
-								</div>
-							</div>
+						<div className="bg-white rounded-lg shadow-sm border border-neutral-200 p-4 sm:p-6 h-fit lg:sticky lg:top-16">
+							<h3 className="text-lg font-serif font-semibold text-neutral-900 mb-2">Order Summary</h3>
+							<div className="max-h-72 overflow-y-auto mb-4">{cartList}</div>
+							{summary}
 							<Button
-								className="w-full"
+								className="w-full mt-4"
 								size="lg"
 								onClick={handlePay}
 								isLoading={isProcessing}
-								disabled={isProcessing || remaining <= 0 || !allAvailable}
+								disabled={isProcessing || !quote || cart.length === 0}
 							>
-								{remaining <= 0 ? "Link expired" : `Pay ${formatPrice(quote.total)}`}
+								{quote ? `Pay ${formatPrice(quote.total)}` : "Pay"}
 							</Button>
-							<div className="mt-4 text-center">
-								<div className="inline-flex items-center text-xs text-neutral-500">
-									<Lock className="w-3 h-3 mr-1" />
-									Secure payment via Paystack
-								</div>
+							<div className="mt-3 text-xs text-neutral-500 flex items-center justify-center">
+								<Lock className="w-3 h-3 mr-1" /> Secure payment via Paystack
 							</div>
 						</div>
 					</div>
-				</div>
+				)}
 			</div>
 
-			<Modal
-				isOpen={viewing !== null}
-				onClose={() => setViewing(null)}
-				title={viewing !== null ? link.items[viewing]?.product?.name : undefined}
-				size="lg"
-			>
-				{viewing !== null && link.items[viewing]?.product && (() => {
-					const item = link.items[viewing];
-					const product = item.product!;
-					const images = product.images || [];
-					return (
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-							<div className="space-y-3">
-								<div className="aspect-square bg-neutral-100 rounded-md overflow-hidden">
-									{images[activeImage] && (
-										<img src={images[activeImage]} alt={product.name} className="w-full h-full object-cover" />
-									)}
-								</div>
-								{images.length > 1 && (
-									<div className="flex gap-2 overflow-x-auto">
-										{images.map((image, i) => (
-											<button
-												type="button"
-												key={image + i}
-												onClick={() => setActiveImage(i)}
-												className={`w-16 h-16 rounded-md overflow-hidden shrink-0 border-2 ${
-													i === activeImage ? "border-neutral-900" : "border-transparent"
-												}`}
-											>
-												<img src={image} alt="" className="w-full h-full object-cover" />
-											</button>
-										))}
-									</div>
+			<Modal isOpen={!!viewing} onClose={() => setViewing(null)} title={viewing?.name} size="lg">
+				{viewing && (
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+						<div className="space-y-3 min-w-0">
+							<div className="aspect-square bg-neutral-100 rounded-md overflow-hidden">
+								{viewing.images[activeImage] && (
+									<img src={viewing.images[activeImage]} alt={viewing.name} className="w-full h-full object-cover" />
 								)}
 							</div>
-							<div className="space-y-4 text-sm">
-								<div>
-									<p className="text-xs uppercase tracking-wider text-neutral-500">
-										{[product.category, product.subcategory].filter(Boolean).join(" · ")}
-									</p>
-									{item.lineTotalNGN !== undefined && (
-										<p className="text-xl font-semibold text-neutral-900 mt-1">{formatPrice(item.lineTotalNGN)}</p>
-									)}
-									<p className="text-neutral-600 mt-1">{itemSpec(item, viewing)}</p>
+							{viewing.images.length > 1 && (
+								<div className="flex gap-2 overflow-x-auto">
+									{viewing.images.map((image, i) => (
+										<button
+											type="button"
+											key={image + i}
+											onClick={() => setActiveImage(i)}
+											className={`w-16 h-16 rounded-md overflow-hidden shrink-0 border-2 ${i === activeImage ? "border-neutral-900" : "border-transparent"}`}
+										>
+											<img src={image} alt="" className="w-full h-full object-cover" />
+										</button>
+									))}
 								</div>
-								{product.description && <p className="text-neutral-700 whitespace-pre-line">{product.description}</p>}
-								{product.features?.length ? (
-									<ul className="list-disc pl-5 space-y-1 text-neutral-700">
-										{product.features.map((feature) => (
-											<li key={feature}>{feature}</li>
-										))}
-									</ul>
-								) : null}
-								{renderOptions(item, viewing)}
-								<Button className="w-full" onClick={() => setViewing(null)}>
-									Done
-								</Button>
-							</div>
+							)}
 						</div>
-					);
-				})()}
+						<div className="space-y-4 text-sm min-w-0">
+							<div>
+								<p className="text-xs uppercase tracking-wider text-neutral-500">
+									{[viewing.brand, viewing.category, viewing.subcategory].filter(Boolean).join(" · ")}
+								</p>
+								<p className="text-xl font-semibold text-neutral-900 mt-1">{formatPrice(viewing.priceNGN)}</p>
+							</div>
+							{viewing.description && <p className="text-neutral-700 whitespace-pre-line">{viewing.description}</p>}
+							{viewing.features?.length ? (
+								<ul className="list-disc pl-5 space-y-1 text-neutral-700">
+									{viewing.features.map((feature) => (
+										<li key={feature}>{feature}</li>
+									))}
+								</ul>
+							) : null}
+							{(
+								[
+									["size", "Size", viewing.sizes],
+									["color", "Colour", viewing.colors],
+								] as const
+							).map(([key, label, options]) =>
+								options.length ? (
+									<div key={key}>
+										<p className="text-xs font-medium uppercase tracking-wider text-neutral-500 mb-2">{label}</p>
+										<div className="flex flex-wrap gap-2">
+											{options.map((option) => (
+												<button
+													type="button"
+													key={option}
+													onClick={() => setChoice((c) => ({ ...c, [key]: option }))}
+													className={`px-3 py-1.5 rounded-md border text-sm ${
+														choice[key] === option
+															? "bg-neutral-900 text-white border-neutral-900"
+															: "bg-white border-neutral-300 text-neutral-800 hover:border-neutral-500"
+													}`}
+												>
+													{option}
+												</button>
+											))}
+										</div>
+									</div>
+								) : null,
+							)}
+							<div>
+								<p className="text-xs font-medium uppercase tracking-wider text-neutral-500 mb-2">Quantity</p>
+								<div className="flex items-center gap-2">
+									<button
+										type="button"
+										onClick={() => setChoice((c) => ({ ...c, qty: Math.max(1, c.qty - 1) }))}
+										className="p-2 border border-neutral-300 rounded-md"
+										aria-label="Decrease quantity"
+									>
+										<Minus className="w-4 h-4" />
+									</button>
+									<span className="w-10 text-center">{choice.qty}</span>
+									<button
+										type="button"
+										onClick={() =>
+											setChoice((c) => ({ ...c, qty: Math.min(Math.max(1, viewing.maxQuantity - qtyInCart(viewing.id)), c.qty + 1) }))
+										}
+										className="p-2 border border-neutral-300 rounded-md"
+										aria-label="Increase quantity"
+									>
+										<Plus className="w-4 h-4" />
+									</button>
+									<span className="text-xs text-neutral-500">{viewing.inStock ? `${viewing.maxQuantity} available` : "Sold out"}</span>
+								</div>
+							</div>
+							<Button className="w-full" onClick={addToCart} disabled={!viewing.inStock}>
+								{viewing.inStock ? "Add to cart" : "Sold out"}
+							</Button>
+						</div>
+					</div>
+				)}
+			</Modal>
+
+			<Modal
+				isOpen={cartOpen}
+				onClose={() => setCartOpen(false)}
+				title={`Your cart (${cartCount})`}
+				size="md"
+				footer={
+					cart.length > 0 ? (
+						<div className="space-y-3">
+							{summary}
+							<Button
+								className="w-full"
+								disabled={!quote}
+								onClick={() => {
+									setCartOpen(false);
+									setView("checkout");
+									window.scrollTo({ top: 0 });
+								}}
+							>
+								Checkout
+							</Button>
+						</div>
+					) : undefined
+				}
+			>
+				{cart.length === 0 ? <p className="text-sm text-neutral-600">Your cart is empty.</p> : cartList}
 			</Modal>
 		</div>
 	);

@@ -93,8 +93,7 @@ const PrivateLinkFormModal = ({ isOpen, onClose, link, onSaved }: PrivateLinkFor
 			  }))
 			: [],
 	);
-	const [editingId, setEditingId] = useState<string | null>(null);
-	const [pickerOpen, setPickerOpen] = useState(false);
+		const [pickerOpen, setPickerOpen] = useState(false);
 	const [search, setSearch] = useState("");
 	const [expiryAmount, setExpiryAmount] = useState(isEdit ? "" : "48");
 	const [expiryUnit, setExpiryUnit] = useState<Unit>("hours");
@@ -136,27 +135,13 @@ const PrivateLinkFormModal = ({ isOpen, onClose, link, onSaved }: PrivateLinkFor
 		setItems((prev) => (prev.some((i) => i.product === p.id) ? prev : [...prev, { ...defaultItemFor(p), qty: "1" }]));
 	const removeProduct = (id: string) => {
 		setItems((prev) => prev.filter((item) => item.product !== id));
-		if (editingId === id) setEditingId(null);
 	};
 	const toggleProduct = (p: Product) => (selectedIds.has(p.id) ? removeProduct(p.id) : addProduct(p));
 	const selectAllPrivate = (list: Product[]) => list.forEach(addProduct);
 	const clearPrivate = (list: Product[]) => {
 		const ids = new Set(list.map((p) => p.id));
 		setItems((prev) => prev.filter((item) => !ids.has(item.product)));
-		if (editingId && ids.has(editingId)) setEditingId(null);
 	};
-
-	const updateItem = (id: string, changes: Partial<PrivateLinkItemInput & { qty: string }>) =>
-		setItems((prev) => prev.map((item) => (item.product === id ? { ...item, ...changes } : item)));
-
-	const toggleOption = (id: string, key: "allowedSizes" | "allowedColors", value: string) =>
-		setItems((prev) =>
-			prev.map((item) => {
-				if (item.product !== id) return item;
-				const current = item[key] || [];
-				return { ...item, [key]: current.includes(value) ? current.filter((v) => v !== value) : [...current, value] };
-			}),
-		);
 
 	const expirySeconds = expiryAmount ? Number(expiryAmount) * UNIT_SECONDS[expiryUnit] : 0;
 	const computedExpiry = expirySeconds > 0 ? new Date(now + expirySeconds * 1000) : null;
@@ -171,15 +156,8 @@ const PrivateLinkFormModal = ({ isOpen, onClose, link, onSaved }: PrivateLinkFor
 		const payload: PrivateLinkPayload = {
 			title: title.trim(),
 			note: note.trim() || undefined,
-			items: items.map((item) => ({
-				product: item.product,
-				size: item.size || undefined,
-				color: item.color || undefined,
-				quantity: Math.max(1, Number(item.qty) || 1),
-				specMode: item.specMode || "locked",
-				allowedSizes: item.specMode === "choosable" ? item.allowedSizes || [] : [],
-				allowedColors: item.specMode === "choosable" ? item.allowedColors || [] : [],
-			})),
+			// Staff pick products only; buyers choose size, colour and quantity themselves
+			items: items.map((item) => ({ product: item.product, quantity: 1 })),
 			maxUses: maxUses && Number(maxUses) > 0 ? Number(maxUses) : null,
 		};
 		// Server accepts fractional hours, so any number of seconds works (edit: empty = unchanged)
@@ -199,135 +177,17 @@ const PrivateLinkFormModal = ({ isOpen, onClose, link, onSaved }: PrivateLinkFor
 
 	const addedPublic = otherProducts.filter((p) => selectedIds.has(p.id));
 
-	const specSummary = (item: PrivateLinkItemInput & { qty: string }) =>
-		[
-			`×${item.qty || 1}`,
-			item.specMode === "choosable" ? "buyer chooses" : [item.size, item.color].filter(Boolean).join(" · "),
-		]
-			.filter(Boolean)
-			.join(" · ");
-
-	const renderEditor = (editingItem: PrivateLinkItemInput & { qty: string }, editingProduct: Product) => (
-						<div className="mx-3 mb-2 rounded-md border border-neutral-200 p-3 space-y-3 bg-neutral-50">
-							<div className="flex items-center justify-between gap-2">
-								<p className="text-sm font-medium text-neutral-900 truncate" title={editingProduct.name}>
-									{editingProduct.name}
-								</p>
-								<button type="button" onClick={() => setEditingId(null)} className="text-xs font-medium text-neutral-600 shrink-0">
-									Done
-								</button>
-							</div>
-							<div className="grid grid-cols-3 gap-2">
-								<select
-									value={editingItem.size || ""}
-									onChange={(e) => updateItem(editingItem.product, { size: e.target.value })}
-									disabled={!editingProduct.sizes?.length}
-									className="px-2 py-2 border border-neutral-300 rounded-md text-sm min-w-0 bg-white"
-									aria-label="Size"
-								>
-									<option value="">Size</option>
-									{editingProduct.sizes?.map((size) => (
-										<option key={size} value={size}>
-											{size}
-										</option>
-									))}
-								</select>
-								<select
-									value={editingItem.color || ""}
-									onChange={(e) => updateItem(editingItem.product, { color: e.target.value })}
-									disabled={!editingProduct.colors?.length}
-									className="px-2 py-2 border border-neutral-300 rounded-md text-sm min-w-0 bg-white"
-									aria-label="Colour"
-								>
-									<option value="">Colour</option>
-									{editingProduct.colors?.map((color) => (
-										<option key={color} value={color}>
-											{color}
-										</option>
-									))}
-								</select>
-								<DigitsInput
-									value={editingItem.qty}
-									ariaLabel="Quantity"
-									placeholder="Qty"
-									onChange={(qty) => updateItem(editingItem.product, { qty })}
-									onBlur={() => {
-										if (!Number(editingItem.qty)) updateItem(editingItem.product, { qty: "1" });
-									}}
-									className="bg-white"
-								/>
-							</div>
-							{editingProduct.sizes?.length || editingProduct.colors?.length ? (
-								<div className="space-y-2">
-									<label className="flex items-center gap-2 text-sm text-neutral-700">
-										<input
-											type="checkbox"
-											checked={editingItem.specMode === "choosable"}
-											onChange={(e) => updateItem(editingItem.product, { specMode: e.target.checked ? "choosable" : "locked" })}
-										/>
-										Let buyer choose size/colour
-									</label>
-									{editingItem.specMode === "choosable" && (
-										<div className="space-y-2">
-											<p className="text-xs text-neutral-500">Tick allowed options (none = all). Size/colour above is the default.</p>
-											{(["allowedSizes", "allowedColors"] as const).map((key) => {
-												const options = key === "allowedSizes" ? editingProduct.sizes : editingProduct.colors;
-												if (!options?.length) return null;
-												return (
-													<div key={key} className="flex flex-wrap items-center gap-1.5">
-														<span className="text-xs font-medium text-neutral-600 w-14">{key === "allowedSizes" ? "Sizes" : "Colours"}</span>
-														{options.map((option) => {
-															const selected = editingItem[key]?.includes(option);
-															return (
-																<button
-																	type="button"
-																	key={option}
-																	onClick={() => toggleOption(editingItem.product, key, option)}
-																	className={`px-2 py-0.5 rounded-full border text-xs ${
-																		selected ? "bg-neutral-900 text-white border-neutral-900" : "bg-white border-neutral-300 text-neutral-700"
-																	}`}
-																>
-																	{option}
-																</button>
-															);
-														})}
-													</div>
-												);
-											})}
-										</div>
-									)}
-								</div>
-							) : null}
-						</div>
-						);
-
-	const renderRow = (p: Product) => {
-		const item = items.find((i) => i.product === p.id);
-		const open = editingId === p.id && !!item;
-		return (
-			<li key={p.id}>
-				<div className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-neutral-50 min-w-0">
-					<input type="checkbox" checked={!!item} onChange={() => toggleProduct(p)} className="shrink-0" aria-label={p.name} />
-					<button
-						type="button"
-						disabled={!item}
-						onClick={() => setEditingId(open ? null : p.id)}
-						className="flex-1 min-w-0 flex items-center gap-2 text-left disabled:cursor-default"
-						title={item ? `Edit ${p.name}` : p.name}
-					>
-						<span className="min-w-0 flex-1">
-							<span className="block truncate">{p.name}</span>
-							<span className="block truncate text-xs text-neutral-500">
-								{item ? specSummary(item) : `${p.stockCount} in stock`}
-							</span>
-						</span>
-						{item && <ChevronDown className={`w-4 h-4 shrink-0 text-neutral-400 transition-transform ${open ? "rotate-180" : ""}`} />}
-					</button>
-				</div>
-				{open && renderEditor(item!, p)}
-			</li>
-		);
-	};
+	const renderRow = (p: Product) => (
+		<li key={p.id}>
+			<label className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-neutral-50 cursor-pointer min-w-0">
+				<input type="checkbox" checked={selectedIds.has(p.id)} onChange={() => toggleProduct(p)} className="shrink-0" />
+				<span className="truncate" title={p.name}>
+					{p.name}
+				</span>
+				<span className="ml-auto text-xs text-neutral-400 shrink-0">{p.stockCount} in stock</span>
+			</label>
+		</li>
+	);
 
 	const footer = (
 		<div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3">
@@ -357,7 +217,8 @@ const PrivateLinkFormModal = ({ isOpen, onClose, link, onSaved }: PrivateLinkFor
 
 				{/* Products: dropdown checklist of private products + compact selected chips */}
 				<div className="min-w-0">
-					<label className="block text-sm font-medium text-neutral-700 mb-2">Products</label>
+					<label className="block text-sm font-medium text-neutral-700 mb-1">Products in this collection</label>
+					<p className="text-xs text-neutral-500 mb-2">Buyers browse these and choose size, colour and quantity themselves.</p>
 					<button
 						type="button"
 						onClick={() => setPickerOpen((open) => !open)}

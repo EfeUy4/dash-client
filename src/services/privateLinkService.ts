@@ -54,10 +54,29 @@ export interface PrivateLinkPayload {
 	maxUses?: number | null;
 }
 
+export interface CollectionProduct {
+	id: string;
+	name: string;
+	description?: string;
+	images: string[];
+	priceNGN: number;
+	originalPriceNGN?: number;
+	category?: string;
+	subcategory?: string;
+	brand?: string;
+	features?: string[];
+	sizes: string[];
+	colors: string[];
+	inStock: boolean;
+	maxQuantity: number;
+}
+
 export interface ResolvedPrivateLink {
 	title: string;
 	note?: string;
 	expiresAt: string;
+	// Shoppable collection (buyers pick size/colour/qty); `items` is the legacy preset cart
+	products?: CollectionProduct[];
 	items: Array<{
 		product?: {
 			id: string;
