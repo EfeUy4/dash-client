@@ -255,6 +255,8 @@ const SalesRepOrderPage = () => {
 			};
 
 			await dispatch(createOrder(orderData)).unwrap();
+			// Pull fresh stock right away (don't rely only on the socket broadcast)
+			dispatch(fetchProducts());
 			
 			// Reset form
 			setCart([]);
